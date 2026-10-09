@@ -8,3 +8,4 @@ dist/
 data/sec_cache/
 data/sec_ingestion_report.json
 data/universe_sources/
+data/market_ingestion_report.json
