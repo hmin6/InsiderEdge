@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import RadarPage from "./pages/RadarPage";
 import { AppShell, PageContainer, Panel, PanelSkeleton, ProductHeader, RoleBadge, ScoreStatusBadge, StateMessage, StatusBadge } from './components';
 import RadarPage from "./pages/RadarPage";
 import CompanyPage from "./pages/CompanyPage";
