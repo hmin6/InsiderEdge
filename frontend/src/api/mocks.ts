@@ -1,5 +1,5 @@
 import { RadarResponse, CompanyResponse, PricesResponse, InsidersResponse } from '../types/api';
-export const DEV_MOCK_RADAR: RadarResponse = {
+import { StatisticsResponse, PredictionResponse } from '../types/research';export const DEV_MOCK_RADAR: RadarResponse = {
   items: [
     {
       ticker: "AAPL",
@@ -71,5 +71,33 @@ export const DEV_MOCK_INSIDERS: InsidersResponse = {
       is_p0_qualifying: true
     }
   ],
-  research_events: []
+  research_events: [
+    { id: "event-1" } // Added to pass the length check
+  ]
+};
+
+export const DEV_MOCK_STATISTICS: StatisticsResponse = {
+  ticker: "AAPL",
+  research_event_id: "evt-1",
+  public_event_day: "2026-10-08",
+  anomaly: { score: 90, status: "complete" },
+  activity: { score: 80, status: "complete" },
+  event_study: { car5: 0.05, car30: 0.12, car90: 0.25, status: "complete" },
+  statistical_validation: {
+    comparable_event_count: 45,
+    cohort_definition: "Tech sector executives acquiring > $1M",
+    mean_car30: 0.08,
+    bootstrap_ci_95: { lower: 0.02, upper: 0.14 },
+    randomization_p_value: 0.03,
+    statistical_score: 75,
+    status: "complete"
+  }
+};
+
+export const DEV_MOCK_PREDICTION: PredictionResponse = {
+  ticker: "AAPL",
+  research_event_id: "evt-1",
+  model_name: "XGBoost-v2",
+  outperformance_probability: 0.65,
+  status: "complete"
 };

@@ -1,5 +1,5 @@
 import { RadarResponse, CompanyResponse, PricesResponse, InsidersResponse } from "../types/api";
-import { DEV_MOCK_RADAR, DEV_MOCK_COMPANY, DEV_MOCK_PRICES, DEV_MOCK_INSIDERS } from "./mocks";
+import { DEV_MOCK_RADAR, DEV_MOCK_COMPANY, DEV_MOCK_PRICES, DEV_MOCK_INSIDERS, DEV_MOCK_STATISTICS, DEV_MOCK_PREDICTION } from "./mocks";
 import { ApiError, getJson } from './http';
 import type { StatisticsResponse, PredictionResponse } from '../types/research';
 
@@ -35,10 +35,12 @@ export const fetchInsiders = async (ticker: string, signal?: AbortSignal): Promi
   return getJson(`${companyUrl(ticker)}/insiders`, signal);
 };
 export async function fetchStatistics(ticker: string, signal?: AbortSignal): Promise<StatisticsResponse> {
-  if (USE_MOCKS) throw new ApiError(503); // No invented statistical evidence.
+  if (USE_MOCKS) return structuredClone(DEV_MOCK_STATISTICS);
   return getJson(`${companyUrl(ticker)}/statistics`, signal);
 }
+
 export async function fetchPrediction(ticker: string, signal?: AbortSignal): Promise<PredictionResponse> {
-  if (USE_MOCKS) throw new ApiError(503);
+  if (USE_MOCKS) return structuredClone(DEV_MOCK_PREDICTION);
   return getJson(`${companyUrl(ticker)}/prediction`, signal);
 }
+
