@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AppShell, PageContainer, Panel, PanelSkeleton, ProductHeader, RoleBadge, ScoreStatusBadge, StateMessage, StatusBadge } from './components';
+import { AppShell, InsiderEdgeScore, PageContainer, Panel, PanelSkeleton, ProductHeader, RoleBadge, ScoreStatusBadge, StateMessage, StatusBadge } from './components';
 import './styles/index.css';
 
 // Component preview only: no company fixtures, financial metrics, or page business logic.
@@ -9,6 +9,7 @@ function VisualSystemPreview() {
     <PageContainer id="preview">
       <ProductHeader eyebrow="InsiderEdge / Shared components" title="Research workspace" description="Reusable product components for Radar and Company Research pages. This preview contains no measured financial results." actions={<a className="ie-button ie-button--primary" href="#components">Explore components</a>} />
       <div className="ie-grid" id="components">
+        <InsiderEdgeScore evidence={{ insider_edge_score: null, anomaly_score: null, activity_score: null, statistical_score: null, ml_outperformance_probability: null, dislocation_score: null, score_status: 'insufficient_data' }} />
         <Panel title="Insider roles" description="Role categories supplied by the data layer.">
           <div className="ie-inline"><RoleBadge role="Executive" /><RoleBadge role="Director" /><RoleBadge role="Other" /></div>
         </Panel>

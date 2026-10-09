@@ -1,4 +1,5 @@
 @import './tokens.css';
+@import './score.css';
 
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--ie-workspace); color: var(--ie-text); font: 14px/1.55 var(--ie-font); }
