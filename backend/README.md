@@ -1,6 +1,7 @@
 # Backend foundation — Issue #1
 
 SEC bulk/XML ingestion instructions: [SEC_INGESTION.md](SEC_INGESTION.md).
+Frozen company universe and the existing-database CIK correction: [config/README.md](../config/README.md).
 
 From the repository root (PowerShell):
 
@@ -30,7 +31,8 @@ From `backend/`, initialize an empty database:
 
 Initialization uses SQLAlchemy `create_all` and can be repeated without dropping
 data. It creates missing tables, but does **not** migrate existing table definitions.
-Schema evolution requires a reviewed migration in a later issue. No Timescale
+Existing databases need the reviewed Issue #3 CIK migration linked above before
+inserting shared issuer CIKs. Other schema evolution requires reviewed migrations. No Timescale
 extension or hypertable is required for this initial PostgreSQL schema.
 
 SQLAlchemy provides parameterized persistence and pooled connections; psycopg
