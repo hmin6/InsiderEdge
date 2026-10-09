@@ -1,35 +1,37 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+
+// Placeholder components to validate routing for Issue #19
+const RadarPage = () => (
+  <div style={{ padding: "2rem" }}>
+    <h1>Market Dislocation Radar</h1>
+    <Link to="/company/AAPL">View AAPL Mock Data</Link>
+  </div>
+);
+
+const CompanyPage = () => (
+  <div style={{ padding: "2rem" }}>
+    <h1>Company Research Page</h1>
+    <Link to="/">Back to Radar</Link>
+  </div>
+);
+
+const ErrorFallback = () => (
+  <div style={{ padding: "2rem", color: "red" }}>
+    <h2>Application Error</h2>
+    <p>Something went wrong loading the UI.</p>
+  </div>
+);
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<RadarPage />} />
+        <Route path="/company/:ticker" element={<CompanyPage />} />
+        <Route path="*" element={<ErrorFallback />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
