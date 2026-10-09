@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { fetchCompany } from "../api/client";
-import { CompanyResponse } from "../types/api";
+import { fetchCompany, fetchPrices, fetchInsiders } from "../api/client";
+import {
+  CompanyResponse,
+  PricesResponse,
+  InsidersResponse,
+} from "../types/api";
 import {
   AppShell,
   PageContainer,
@@ -10,6 +14,7 @@ import {
   PanelSkeleton,
   StateMessage,
   InsiderEdgeScore,
+  PriceChart,
   AnalystBrief,
 } from "../components";
 
@@ -18,14 +23,24 @@ export default function CompanyPage() {
   const [data, setData] = useState<CompanyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [pricesData, setPricesData] = useState<PricesResponse | null>(null);
+  const [insidersData, setInsidersData] = useState<InsidersResponse | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!ticker) return;
     setLoading(true);
     setError(false);
-    fetchCompany(ticker)
-      .then((res) => {
-        setData(res);
+    Promise.all([
+      fetchCompany(ticker),
+      fetchPrices(ticker),
+      fetchInsiders(ticker),
+    ])
+      .then(([compRes, priceRes, insRes]) => {
+        setData(compRes);
+        setPricesData(priceRes);
+        setInsidersData(insRes);
         setLoading(false);
       })
       .catch(() => {
@@ -130,22 +145,27 @@ export default function CompanyPage() {
             </Panel>
           </div>
 
-          {/* Section 8: Price Chart (Placeholder for Issue #22) */}
+          {/* Section 8: Price Chart */}
           <Panel title="Historical Price & Events">
-            <div
-              className="ie-loading"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "#f6f8fb",
-                borderRadius: "6px",
-              }}
-            >
-              <p className="ie-muted">
-                Recharts price chart will be implemented in Issue #22.
-              </p>
-            </div>
+            {pricesData && insidersData ? (
+              <PriceChart
+                prices={pricesData.prices}
+                transactions={insidersData.transactions}
+              />
+            ) : (
+              <div
+                className="ie-loading"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "#f6f8fb",
+                  borderRadius: "6px",
+                }}
+              >
+                <p className="ie-muted">Chart data unavailable.</p>
+              </div>
+            )}
           </Panel>
 
           {/* Section 9 & 10: Gemini & ElevenLabs (Placeholders for Issues #28 & #29) */}
