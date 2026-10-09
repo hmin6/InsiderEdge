@@ -1,14 +1,12 @@
 """Market-model event study for supplied, adjustment-aware daily prices.
 
-The caller supplies one row per research event and price observations for each
-event ticker plus SPY. The sorted union of the ticker's and SPY's supplied
-dates defines that pair's observed session calendar. Daily returns are formed
-only between adjacent dates on that calendar when both prices are finite and
-positive on both dates. No prices or sessions are forward-filled or inferred.
-
-The benchmark calendar cannot reveal a session absent from *both* supplied
-series; callers must supply complete daily observations to guarantee that
-absence is detected. An event must have a public_event_day after its
+The caller supplies one row per research event, price observations for each
+event ticker plus SPY, and an independently sourced expected-session index.
+That index defines event offsets; supplied prices never define the calendar.
+Daily returns are formed only between adjacent expected sessions when both
+prices are finite and positive on both dates. No prices or sessions are
+forward-filled or inferred. Callers are responsible for sourcing a complete,
+trusted trading-session index. An event must have a public_event_day after its
 information_date. Model fitting uses returns ending only in sessions -120
 through -21; post-event returns are outcomes and never enter the fit.
 """
@@ -87,6 +85,25 @@ def _prepare_inputs(
     return events, market
 
 
+def _prepare_expected_sessions(expected_sessions: pd.Series | pd.Index | list[object]) -> list[pd.Timestamp]:
+    """Normalize an ordered caller-supplied trading-session index."""
+    if isinstance(expected_sessions, (str, bytes)):
+        raise ValueError("expected_sessions must be an ordered sequence of dates")
+    try:
+        sessions = _normalized_dates(pd.Series(expected_sessions))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("expected_sessions must be an ordered sequence of dates") from exc
+    if sessions.empty:
+        raise ValueError("expected_sessions must not be empty")
+    if sessions.isna().any():
+        raise ValueError("expected_sessions contains malformed or missing dates")
+    if sessions.duplicated().any():
+        raise ValueError("expected_sessions must contain unique dates")
+    if not sessions.is_monotonic_increasing:
+        raise ValueError("expected_sessions must be in chronological order")
+    return sessions.tolist()
+
+
 def _price_map(market: pd.DataFrame, ticker: str) -> dict[pd.Timestamp, float | None]:
     rows = market.loc[market["ticker"].eq(ticker)]
     return {
@@ -98,12 +115,12 @@ def _price_map(market: pd.DataFrame, ticker: str) -> dict[pd.Timestamp, float | 
 def _returns_for_pair(
     market: pd.DataFrame,
     ticker: str,
+    sessions: list[pd.Timestamp],
 ) -> tuple[list[pd.Timestamp], dict[pd.Timestamp, tuple[float | None, float | None]]]:
     stock_prices = _price_map(market, ticker)
     spy_prices = _price_map(market, BENCHMARK)
-    # The union catches dates observed for only one member of the pair. A
-    # return is valid only when both prices are present on consecutive dates.
-    sessions = sorted(set(stock_prices) | set(spy_prices))
+    # The independent expected-session index prevents shared price omissions
+    # from shifting offsets. Any missing endpoint invalidates that return.
     returns: dict[pd.Timestamp, tuple[float | None, float | None]] = {}
     for index in range(1, len(sessions)):
         previous, current = sessions[index - 1], sessions[index]
@@ -139,7 +156,11 @@ def _mark_horizons_unavailable(base: dict[str, Any], reason: str) -> None:
         base[f"{name}_missing_reasons"] = [reason]
 
 
-def _event_result(event: pd.Series, market: pd.DataFrame) -> dict[str, Any]:
+def _event_result(
+    event: pd.Series,
+    market: pd.DataFrame,
+    expected_sessions: list[pd.Timestamp],
+) -> dict[str, Any]:
     base: dict[str, Any] = {
         "research_event_id": event["research_event_id"],
         "ticker": event["ticker"],
@@ -148,6 +169,7 @@ def _event_result(event: pd.Series, market: pd.DataFrame) -> dict[str, Any]:
         "alpha": None,
         "beta": None,
         "estimation_observation_count": 0,
+        "session_coverage_status": "unavailable",
         **_unavailable_horizons("not_calculated"),
     }
     if pd.isna(event["ticker"]) or not str(event["ticker"]).strip():
@@ -166,19 +188,28 @@ def _event_result(event: pd.Series, market: pd.DataFrame) -> dict[str, Any]:
         base.update(status="invalid_company_identifier", missing_reasons=["event_ticker_is_benchmark"])
         return base
 
-    sessions, returns = _returns_for_pair(market, str(event["ticker"]))
+    sessions, returns = _returns_for_pair(market, str(event["ticker"]), expected_sessions)
     session_positions = {date: index for index, date in enumerate(sessions)}
     event_date = event["public_event_day"]
     if event_date not in session_positions:
-        base.update(status="missing_event_session", missing_reasons=["public_event_day_not_in_supplied_session_calendar"])
+        base.update(status="missing_event_session", missing_reasons=["public_event_day_not_in_expected_sessions"])
         return base
     event_index = session_positions[event_date]
+
+    # Return at t=-120 needs prices at t=-121 and t=-120. Require the
+    # expected index to span that full estimation window before fitting.
+    estimation_start_index = event_index + ESTIMATION_START
+    estimation_end_index = event_index + ESTIMATION_END
+    if estimation_start_index < 1 or estimation_end_index >= len(sessions):
+        base["status"] = "insufficient_session_coverage"
+        base["missing_reasons"] = ["expected_sessions_do_not_cover_estimation_window"]
+        _mark_horizons_unavailable(base, "expected_sessions_do_not_cover_estimation_window")
+        return base
+    base["session_coverage_status"] = "estimation_window_covered_by_expected_sessions"
 
     estimation: list[tuple[float, float]] = []
     for offset in range(ESTIMATION_START, ESTIMATION_END + 1):
         index = event_index + offset
-        if index < 1 or index >= len(sessions):
-            continue
         pair = returns.get(sessions[index])
         if pair is not None and pair[0] is not None and pair[1] is not None:
             estimation.append((pair[0], pair[1]))
@@ -209,6 +240,8 @@ def _event_result(event: pd.Series, market: pd.DataFrame) -> dict[str, Any]:
     for name, horizon in CAR_HORIZONS.items():
         abnormal_returns: list[float] = []
         missing_reasons: list[str] = []
+        if event_index + horizon - 1 >= len(sessions):
+            missing_reasons.append("expected_sessions_do_not_cover_horizon")
         for offset in range(horizon):
             index = event_index + offset
             if index < 1 or index >= len(sessions):
@@ -251,18 +284,25 @@ def _event_result(event: pd.Series, market: pd.DataFrame) -> dict[str, Any]:
     return base
 
 
-def build_event_studies(research_events: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFrame:
+def build_event_studies(
+    research_events: pd.DataFrame,
+    prices: pd.DataFrame,
+    expected_sessions: pd.Series | pd.Index | list[object],
+) -> pd.DataFrame:
     """Return one market-model event-study result per research_event_id.
 
-    Price dates are paired exactly. The pair-specific union of observed stock
-    and SPY dates is the session calendar, so an unpaired supplied date breaks
-    returns on that date and the next adjacent date. A missing date absent from
-    both series cannot be detected without an external exchange calendar.
-    Invalid (nonfinite, nonnumeric, zero, or negative) prices are treated as
-    missing observations. Duplicate ticker/date rows and malformed price dates
-    raise ``ValueError``. Event horizons are all-or-nothing: no partial CAR is
+    ``expected_sessions`` must be an independently sourced, chronologically
+    ordered sequence of unique trading dates spanning each event's required
+    estimation and event windows. The function cannot verify that this source
+    is authoritative or complete. Price dates are paired exactly against this
+    index; a missing price on an expected session invalidates returns using
+    that date. Invalid (nonfinite, nonnumeric, zero, or negative) prices are
+    treated as missing observations. Duplicate ticker/date rows, malformed
+    price dates, and malformed/duplicate/unordered expected sessions raise
+    ``ValueError``. Event horizons are all-or-nothing: no partial CAR is
     returned when any required paired return is unavailable.
     """
     events, market = _prepare_inputs(research_events, prices)
-    rows = [_event_result(event, market) for _, event in events.iterrows()]
+    sessions = _prepare_expected_sessions(expected_sessions)
+    rows = [_event_result(event, market, sessions) for _, event in events.iterrows()]
     return pd.DataFrame(rows)
