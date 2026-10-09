@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ownershipDocument>
+  <documentType>4</documentType><aff10b5One>1</aff10b5One>
+  <issuer><issuerCik>123</issuerCik><issuerName>Synthetic Fixture Company</issuerName><issuerTradingSymbol>test</issuerTradingSymbol></issuer>
+  <reportingOwner><reportingOwnerId><rptOwnerCik>456</rptOwnerCik><rptOwnerName>Fixture Owner A</rptOwnerName></reportingOwnerId><reportingOwnerRelationship><isOfficer>1</isOfficer><isDirector>0</isDirector><isTenPercentOwner>0</isTenPercentOwner><isOther>0</isOther><officerTitle>CFO</officerTitle></reportingOwnerRelationship></reportingOwner>
+  <reportingOwner><reportingOwnerId><rptOwnerCik>789</rptOwnerCik><rptOwnerName>Fixture Owner B</rptOwnerName></reportingOwnerId><reportingOwnerRelationship><isOfficer>0</isOfficer><isDirector>1</isDirector></reportingOwnerRelationship></reportingOwner>
+  <nonDerivativeTable><nonDerivativeTransaction>
+    <securityTitle><value>Common Stock</value></securityTitle>
+    <transactionDate><value>2026-09-24</value></transactionDate>
+    <transactionCoding><transactionFormType>4</transactionFormType><transactionCode>P</transactionCode></transactionCoding>
+    <transactionAmounts><transactionShares><value>10.000</value></transactionShares><transactionPricePerShare><value>3.00</value></transactionPricePerShare><transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode></transactionAmounts>
+    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>110</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+    <ownershipNature><directOrIndirectOwnership><value>D</value></directOrIndirectOwnership></ownershipNature>
+  </nonDerivativeTransaction></nonDerivativeTable>
+</ownershipDocument>

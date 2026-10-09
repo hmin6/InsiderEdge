@@ -1,5 +1,7 @@
 # Backend foundation — Issue #1
 
+SEC bulk/XML ingestion instructions: [SEC_INGESTION.md](SEC_INGESTION.md).
+
 From the repository root (PowerShell):
 
 ```powershell
@@ -42,8 +44,8 @@ is disabled with bound parameters hidden. Do not log raw connection exceptions
 or URLs in future routes/services. Initialization emits a sanitized error on failure.
 
 All six contract tables are represented, including the explicitly approved
-`research_events` schema dependency. There is no ingestion, aggregation, feature,
-quant, or ML implementation and initialization inserts no data. Missing numeric
+`research_events` schema dependency. Schema initialization performs no ingestion,
+aggregation, feature, quant, or ML calculations and inserts no data. Missing numeric
 values remain nullable, with no invented defaults. IDs and normalized tickers
 are supplied by future ingestion/services. Numeric values use exact database
 NUMERIC types; timestamps use timezone-aware PostgreSQL types. Prices intentionally
