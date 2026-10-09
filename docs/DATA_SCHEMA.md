@@ -21,12 +21,18 @@ Required fields:
 | Field | Type/meaning |
 |---|---|
 | `ticker` | text, primary key |
-| `cik` | text, unique when known |
+| `cik` | text, normalized issuer CIK when known; nullable and non-unique across share classes |
 | `company_name` | text |
 | `sector` | text, nullable only when genuinely unavailable |
 | `industry` | text, nullable |
 
-Recommended indexes: unique `cik`; index `sector`.
+Recommended indexes: non-unique `cik`; index `sector`.
+
+`ticker` remains the unique company/security identifier. Multiple tickers may share
+one issuer CIK (for example, GOOG and GOOGL). CIK-only lookup returns a ticker only
+when exactly one matches; otherwise surface ambiguity and expose all matching
+tickers. Never arbitrarily select a share class. This narrow correction was
+approved during Issue #3 after real-data validation.
 
 ## `insider_transactions`
 
