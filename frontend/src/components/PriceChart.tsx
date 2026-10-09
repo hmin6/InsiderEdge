@@ -43,31 +43,34 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
   }
 
   return (
-    <div style={{ width: '100%', height: 400 }}>
+    <div className="ie-price-chart" style={{ width: '100%', height: 400 }}>
       <ResponsiveContainer>
         <LineChart data={prices} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--ie-border)" />
           <XAxis 
             dataKey="date" 
-            tick={{ fontSize: 12, fill: 'var(--ie-muted)' }} 
+            tick={{ fontSize: 14, fill: 'var(--ie-muted)' }}
             tickFormatter={(val) => val.substring(5)} 
             tickMargin={10}
+            minTickGap={32}
           />
           <YAxis 
             domain={['auto', 'auto']} 
-            tick={{ fontSize: 12, fill: 'var(--ie-muted)' }} 
+            tick={{ fontSize: 14, fill: 'var(--ie-muted)' }}
             tickFormatter={(val) => `$${val.toFixed(0)}`}
-            width={60}
+            width={72}
           />
           <Tooltip 
             contentStyle={{ borderRadius: '8px', border: '1px solid var(--ie-border)', boxShadow: 'var(--ie-shadow)' }}
             labelStyle={{ fontWeight: 600, color: 'var(--ie-text)', marginBottom: '4px' }}
+            formatter={(value) => typeof value === 'number' ? `$${value.toFixed(2)}` : String(value)}
           />
           <Line 
             type="monotone" 
             dataKey="analysis_price" 
+            name="Adjustment-aware price"
             stroke="var(--ie-text)" 
-            strokeWidth={2} 
+            strokeWidth={2.5}
             dot={false}
             animationDuration={300}
             isAnimationActive={!reducedMotion}
@@ -78,10 +81,10 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
               key={`${marker.transaction_id}-${idx}`}
               x={marker.filing_date}
               y={marker.chartPrice}
-              r={5}
+              r={6}
               fill="var(--ie-primary)"
               stroke="#fff"
-              strokeWidth={2}
+              strokeWidth={2.5}
             />
           ))}
         </LineChart>

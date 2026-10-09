@@ -74,7 +74,7 @@ function BriefRequest({ ticker }: { ticker: string }) {
         <p role="status" className="ie-sr-only">Analyst brief ready.</p>
         <BriefTranscript transcript={brief.transcript} />
         {audioUrl && !audioError && <>
-          <audio ref={audio} controls preload="none" src={audioUrl} aria-label={`Analyst brief for ${ticker}`} onError={() => setAudioError(true)} style={{ maxWidth: '100%' }} />
+          <audio className="ie-audio-player" ref={audio} controls preload="none" src={audioUrl} aria-label={`Analyst brief for ${ticker}`} onError={() => setAudioError(true)} style={{ maxWidth: '100%' }} />
           <div><button className="ie-button" onClick={replay}>Replay from start</button></div>
         </>}
         {audioError && <p role="status" className="ie-muted">Audio unavailable. The transcript remains available above.</p>}

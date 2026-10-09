@@ -12,7 +12,7 @@
 @media (prefers-reduced-motion: reduce) { .ie-explanation-sections { animation: none !important; } }
 
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--ie-workspace); color: var(--ie-text); font: 14px/1.55 var(--ie-font); }
+body { margin: 0; background: var(--ie-workspace); color: var(--ie-text); font: 15px/1.55 var(--ie-font); }
 button, input, select, textarea { font: inherit; }
 a { color: var(--ie-primary); }
 h1, h2, h3, p { margin: 0; }
@@ -44,7 +44,7 @@ h3 { font-size: 14px; font-weight: 650; }
 .ie-section-heading p { color: var(--ie-muted); font-size: 13px; margin-top: var(--ie-space-1); }
 .ie-panel-body { padding: var(--ie-space-5); }
 .ie-muted { color: var(--ie-muted); }
-.ie-badge { display: inline-flex; align-items: center; border: 1px solid #d5deea; border-radius: 5px; padding: 3px 8px; font-size: 12px; font-weight: 600; background: #f0f3f7; color: #45546a; white-space: nowrap; }
+.ie-badge { display: inline-flex; align-items: center; border: 1px solid #d5deea; border-radius: 5px; padding: 3px 8px; font-size: 13px; font-weight: 600; background: #f0f3f7; color: #45546a; white-space: normal; }
 .ie-badge--info { background: #edf3ff; border-color: #cbdafa; color: #224b9d; }
 .ie-badge--warning { background: #fff7e6; border-color: #ecd7a2; color: #775415; }
 .ie-badge--positive { background: #edf7f1; border-color: #bddac9; color: #21603d; }
@@ -73,12 +73,36 @@ h3 { font-size: 14px; font-weight: 650; }
 .ie-reveal { animation: ie-enter var(--ie-duration-normal) var(--ie-ease); }
 @keyframes ie-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .ie-table-scroll { max-width: 100%; overflow-x: auto; }
-.ie-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+.ie-table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; }
 .ie-table th { background: #f6f8fb; color: var(--ie-muted); font-size: 12px; font-weight: 600; }
 .ie-table th, .ie-table td { padding: 10px 16px; border-bottom: 1px solid var(--ie-border); }
 .ie-table tbody tr { transition: background-color var(--ie-duration-fast); }
-.ie-table tbody tr:hover { background: #f3f7fd; }
+.ie-table tbody tr:hover, .ie-table tbody tr:focus-within { background: #edf3fc; }
 .ie-number { font-variant-numeric: tabular-nums; text-align: right; }
+.ie-table .ie-number { white-space: nowrap; }
+.ie-table td:first-child { min-width: 165px; }
+.ie-table th.ie-priority-column { color: var(--ie-primary); }
+.ie-table td.ie-priority-column { font-size: 17px; font-weight: 650; background: #f5f8ff; }
+.ie-table th { white-space: nowrap; }
+.ie-table-scroll:focus-visible { outline-offset: -3px; }
+.ie-explanation-sections { max-width: 86ch; }
+.ie-explanation-sections section + section { padding-top: var(--ie-space-4); border-top: 1px solid var(--ie-border); }
+.ie-explanation-sections h3 { font-size: 16px; }
+.ie-audio-player { width: 100%; max-width: 560px; min-height: 44px; }
+.ie-metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ie-space-4); margin: 0 0 var(--ie-space-5); }
+.ie-metric-grid > div { padding: var(--ie-space-3); border: 1px solid var(--ie-border); border-radius: 6px; background: #f6f8fb; }
+.ie-metric-grid dt { color: var(--ie-muted); font-size: 13px; font-weight: 600; }
+.ie-metric-grid dd { margin: var(--ie-space-1) 0 0; font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.ie-model-probability strong { display: block; font-size: 28px; font-variant-numeric: tabular-nums; margin-top: var(--ie-space-2); }
+.ie-panel-body > p + p { margin-top: var(--ie-space-2); }
+.ie-panel-body > .ie-state { margin-top: var(--ie-space-3); }
+.ie-skeleton-content > .ie-skeleton:nth-child(3) { width: 86%; }
+.ie-skeleton-content > .ie-skeleton:last-child { width: 68%; }
+@media (max-width: 480px) {
+  .ie-metric-grid { grid-template-columns: minmax(0, 1fr); }
+  .ie-score-component { grid-template-columns: minmax(0, 1fr); }
+  .ie-score-component dd { text-align: left; padding-left: 22px; }
+}
 @media (max-width: 800px) {
   .ie-grid { grid-template-columns: minmax(0, 1fr); }
   .ie-topbar { padding: 12px 20px; gap: 12px 20px; }
