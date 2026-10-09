@@ -63,8 +63,8 @@ export default function RadarPage() {
                 <th className="ie-number">Anomaly</th>
                 <th className="ie-number">Activity</th>
                 <th className="ie-number">Dislocation</th>
-                <th className="ie-number">ML Prob</th>
-                <th className="ie-number">IE Score</th>
+                <th className="ie-number">Model probability</th>
+                <th className="ie-number ie-priority-column">Research priority score</th>
               </tr>
             </thead>
             <tbody>
@@ -96,7 +96,7 @@ export default function RadarPage() {
                   <td className="ie-number">
                     {numeric(item.ml_outperformance_probability, true)}
                   </td>
-                  <td className="ie-number">
+                  <td className="ie-number ie-priority-column">
                     <strong>
                       {numeric(item.insider_edge_score)}
                     </strong>

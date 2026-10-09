@@ -19,7 +19,7 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
       {data.anomaly.score === null && <StateMessage title="Insufficient anomaly history">Anomaly evidence is unavailable; it is not a zero score.</StateMessage>}
     </Panel>
     <Panel title="Event Study & Statistical Evidence">
-      <dl className="ie-stack">{(['car5', 'car30', 'car90'] as const).map(key => <div key={key}><dt>{key.toUpperCase()}</dt><dd>{numeric(data.event_study[key], true)}</dd></div>)}</dl>
+      <dl className="ie-metric-grid">{(['car5', 'car30', 'car90'] as const).map(key => <div key={key}><dt>{key.toUpperCase()}</dt><dd>{numeric(data.event_study[key], true)}</dd></div>)}</dl>
       {(data.event_study.car30 === null || data.event_study.car90 === null) && <p className="ie-muted">Unavailable horizons may need more completed trading sessions or estimation history. Future CAR is not yet known.</p>}
       {data.event_study.status !== 'complete' && <p className="ie-muted">Event-study evidence is incomplete or has insufficient estimation history.</p>}
       <p>Comparable events: {numeric(v.comparable_event_count)} · Mean CAR30: {numeric(v.mean_car30, true)}</p>
@@ -32,7 +32,7 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
 }
 export function PredictionEvidence({ data }: { data: PredictionResponse }) {
   return <Panel title="ML Prediction">
-    {data.outperformance_probability === null ? <StateMessage title="Model prediction unavailable">No model probability is available for this event.</StateMessage> : <p>Benchmark-outperformance probability: {numeric(data.outperformance_probability, true)}</p>}
+    {data.outperformance_probability === null ? <StateMessage title="Model prediction unavailable">No model probability is available for this event.</StateMessage> : <p className="ie-model-probability">Benchmark-outperformance probability: <strong>{numeric(data.outperformance_probability, true)}</strong></p>}
     <p className="ie-muted">{data.model_name || 'Model unavailable'}</p>
   </Panel>;
 }
