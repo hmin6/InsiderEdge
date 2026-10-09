@@ -259,7 +259,15 @@ def build_activity_scores(
             reference_rule != "sector" or len(reference) < MIN_ACTIVITY_REFERENCE
         ):
             reasons.append("insufficient_company_and_sector_reference_history")
-        if sector_by_ticker.get(ticker) is None and len(earlier) < MIN_ACTIVITY_REFERENCE:
+
+        sector = sector_by_ticker.get(ticker)
+        sector_missing = (
+            sector is None
+            or pd.isna(sector)
+            or not str(sector).strip()
+        )
+
+        if sector_missing and len(earlier) < MIN_ACTIVITY_REFERENCE:
             reasons.append("missing_sector_for_reference_fallback")
         status = "complete" if score is not None else (
             "zero_historical_rate" if "zero_historical_rate" in reasons else "insufficient_data"
