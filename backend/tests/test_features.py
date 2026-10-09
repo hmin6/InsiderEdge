@@ -78,6 +78,7 @@ class EventFeatureTests(unittest.TestCase):
         self.assertAlmostEqual(row["prior_return_5d"], 5 / 216)
         self.assertAlmostEqual(row["prior_return_30d"], 30 / 191)
         self.assertAlmostEqual(row["prior_return_90d"], 90 / 131)
+        self.assertAlmostEqual(row["sector_return_90d"], 90 / 81)
         self.assertGreater(row["prior_volatility_30d"], 0)
         self.assertLessEqual(row["drawdown_90d"], 0)
         self.assertAlmostEqual(row["spy_relative_return_30d"], row["prior_return_30d"] - ((30 / 291)))
@@ -107,7 +108,7 @@ class EventFeatureTests(unittest.TestCase):
         short_prices = prices_frame(count=10)
         row = self.features(market_frame=short_prices).iloc[0]
         self.assertTrue(pd.notna(row["prior_return_5d"]))
-        for column in ("prior_return_30d", "prior_return_90d", "prior_volatility_30d", "drawdown_90d", "volume_zscore_30d", "spy_relative_return_30d", "sector_relative_return_30d"):
+        for column in ("prior_return_30d", "prior_return_90d", "sector_return_90d", "prior_volatility_30d", "drawdown_90d", "volume_zscore_30d", "spy_relative_return_30d", "sector_relative_return_30d"):
             self.assertTrue(pd.isna(row[column]), column)
 
     def test_missing_ownership_inputs_remain_missing(self):
@@ -145,7 +146,7 @@ class EventFeatureTests(unittest.TestCase):
         self.assertFalse(row["any_new_position_flag"])
 
     def test_feature_formulas_and_missingness_are_documented(self):
-        for feature in ("prior_return_5d", "prior_return_30d", "prior_return_90d", "prior_volatility_30d", "drawdown_90d", "volume_zscore_30d", "aggregate_purchase_value", "recent_purchase_rate", "historical_purchase_rate"):
+        for feature in ("prior_return_5d", "prior_return_30d", "prior_return_90d", "sector_return_90d", "prior_volatility_30d", "drawdown_90d", "volume_zscore_30d", "aggregate_purchase_value", "recent_purchase_rate", "historical_purchase_rate"):
             self.assertIn(feature, FEATURE_DEFINITIONS)
             definition = FEATURE_DEFINITIONS[feature].lower()
             self.assertTrue("null" in definition or "nullable" in definition or "0 if none" in definition)
