@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
-import { AppShell, PageContainer, Panel, PanelSkeleton, ProductHeader, RoleBadge, ScoreStatusBadge, StateMessage, StatusBadge } from './components';
+import { BrowserRouter, Routes, Route, Link, useParams } from "react-router-dom";
+import { AppShell, PageContainer, Panel, PanelSkeleton, ProductHeader, RoleBadge, ScoreStatusBadge, StateMessage, StatusBadge, ExplainSignal, InsiderEdgeScore } from './components';
 
 // Placeholder components to validate routing for Issue #19
 const RadarPage = () => (
@@ -9,12 +9,19 @@ const RadarPage = () => (
   </div>
 );
 
-const CompanyPage = () => (
+const CompanyPage = () => {
+  const { ticker = '' } = useParams();
+  return (
   <div style={{ padding: "2rem" }}>
     <h1>Company Research Page</h1>
     <Link to="/">Back to Radar</Link>
+    <ExplainSignal ticker={ticker.toUpperCase()} evidence={<>
+      <InsiderEdgeScore evidence={{ insider_edge_score: null, anomaly_score: null, activity_score: null, statistical_score: null, ml_outperformance_probability: null, dislocation_score: null, score_status: 'insufficient_data' }} />
+      <Panel title="Quantitative evidence"><p>Company data is not connected in this placeholder page. CAR5, CAR30, CAR90, statistical validation, and ML probability are unavailable.</p></Panel>
+    </>} />
   </div>
-);
+  );
+};
 
 const ErrorFallback = () => (
   <div style={{ padding: "2rem", color: "red" }}>
