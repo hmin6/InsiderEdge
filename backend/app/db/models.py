@@ -18,7 +18,7 @@ class Base(DeclarativeBase):
 class Company(Base):
     __tablename__ = 'companies'
     ticker = Column(Text, primary_key=True)
-    cik = Column(Text, unique=True)
+    cik = Column(Text, index=True)
     company_name = Column(Text, nullable=False)
     sector = Column(Text, index=True)
     industry = Column(Text)

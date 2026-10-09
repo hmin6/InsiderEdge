@@ -19,7 +19,6 @@ export default function RadarPage() {
   useEffect(() => {
     fetchRadar()
       .then((res) => {
-        // Sort by InsiderEdge Score descending by default
         const sorted = res.items.sort((a, b) => {
           const scoreA = a.insider_edge_score ?? 0;
           const scoreB = b.insider_edge_score ?? 0;

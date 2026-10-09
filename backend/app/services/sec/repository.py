@@ -4,20 +4,13 @@ from sqlalchemy.dialects.postgresql import insert as postgres_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app.db.models import Company, InsiderTransaction
-from .normalize import InvalidRow, Report, cik
+from .normalize import Report
+from app.services.universe import CompanyMetadata, Universe
 
 
 def persist(session, report: Report) -> dict[str, int]:
     companies = session.execute(select(Company.ticker, Company.cik)).all()
-    by_cik = {}
-    by_ticker = {}
-    for ticker, company_cik in companies:
-        normalized_cik = cik(company_cik) if company_cik else None
-        by_ticker[ticker] = normalized_cik
-        if normalized_cik:
-            if normalized_cik in by_cik:
-                raise InvalidRow('ambiguous existing company CIK mapping')
-            by_cik[normalized_cik] = ticker
+    mapping = Universe(CompanyMetadata(ticker, company_cik, ticker) for ticker, company_cik in companies)
     dialect = session.get_bind().dialect.name
     if dialect not in {'postgresql', 'sqlite'}:
         raise ValueError('Unsupported database dialect for SEC persistence')
@@ -25,12 +18,10 @@ def persist(session, report: Report) -> dict[str, int]:
     counts = {'inserted': 0, 'duplicates': 0, 'unmapped': 0}
     for record in report.records:
         row = record.copy()
-        mapped = by_cik.get(row['cik'])
-        symbol = row['ticker']
-        if mapped is None and symbol in by_ticker and by_ticker[symbol] is None:
-            mapped = symbol
+        resolution = mapping.resolve_issuer(row['cik'], row['ticker'])
+        mapped = resolution.ticker
         if mapped is None:
-            report.issue(row['accession_number'], 'ticker', 'no matching existing company; ticker stored as NULL')
+            report.issue(row['accession_number'], 'ticker', f'{resolution.status}: {resolution.reason}; ticker stored as NULL')
             counts['unmapped'] += 1
         row['ticker'] = mapped
         statement = insert(InsiderTransaction).values(**row).on_conflict_do_nothing(

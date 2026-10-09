@@ -7,3 +7,4 @@ node_modules/
 dist/
 data/sec_cache/
 data/sec_ingestion_report.json
+data/universe_sources/

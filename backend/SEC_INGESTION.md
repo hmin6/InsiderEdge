@@ -37,8 +37,10 @@ EDGAR queries use CIKs already present in `companies`, or repeated `--cik` optio
 This is **not** universe construction. Company metadata must be populated by the
 appropriate later issue. Supplied CIKs can be imported before mapping exists:
 unmapped rows receive a NULL ticker plus diagnostics, preserving issuer CIK/name.
-Persistence resolves existing normalized CIKs first; an existing ticker with unknown
-CIK may match by exact symbol. A conflicting known CIK is never ignored. The loader
+Persistence resolves exact compatible tickers or a unique normalized issuer CIK.
+Shared-CIK ambiguity and conflicting known CIKs are diagnosed with NULL tickers;
+no share class is chosen arbitrarily. An existing ticker with unknown CIK may
+match by exact symbol. The loader
 does not create companies, rename tickers, or fetch a mapping provider.
 
 ## Sources and joins

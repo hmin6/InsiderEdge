@@ -1,13 +1,8 @@
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import RadarPage from "./pages/RadarPage";
 import { AppShell, PageContainer, Panel, PanelSkeleton, ProductHeader, RoleBadge, ScoreStatusBadge, StateMessage, StatusBadge } from './components';
-
-const CompanyPage = () => (
-  <div style={{ padding: "2rem" }}>
-    <h1>Company Research Page</h1>
-    <Link to="/">Back to Radar</Link>
-  </div>
-);
+import RadarPage from "./pages/RadarPage";
+import CompanyPage from "./pages/CompanyPage";
 
 const ErrorFallback = () => (
   <div style={{ padding: "2rem", color: "red" }}>

@@ -1,0 +1,19 @@
+{
+  "freeze_date": "2026-10-09",
+  "holdings_as_of": "2026-10-08",
+  "security_count": 101,
+  "issuer_count": 100,
+  "membership_source": "https://www.ishares.com/us/products/239723/ishares-s-p-100-etf/latest-holdings.csv",
+  "identifiers_source": "https://www.sec.gov/files/company_tickers.json",
+  "holdings_sha256": "9ffa92e0c2a5a9aa9ea079dc7cd1791d9b6823cfc6ee2f0a9f1618e5f4f265d8",
+  "sec_identifiers_sha256": "bb1521ff938ce1217343362f335aae521d9978b105229eabef69124ac24bbb1c",
+  "universe_sha256": "ab4a298757991ac824b33018bdf4002363d011246aba2dc3b673895bbf5a0847",
+  "transformations": [
+    "Equity holdings only; non-equities excluded",
+    "BRK B and BRK-B canonicalized to BRK.B",
+    "Communication sector canonicalized to Communication Services",
+    "Exact canonical-ticker SEC match; ten-digit issuer CIK",
+    "OEF security names retained, including distinct share classes"
+  ],
+  "unmapped_tickers": []
+}
