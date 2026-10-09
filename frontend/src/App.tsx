@@ -1,20 +1,7 @@
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { AppShell, PageContainer, Panel, PanelSkeleton, ProductHeader, RoleBadge, ScoreStatusBadge, StateMessage, StatusBadge } from './components';
-
-// Placeholder components to validate routing for Issue #19
-const RadarPage = () => (
-  <div style={{ padding: "2rem" }}>
-    <h1>Market Dislocation Radar</h1>
-    <Link to="/company/AAPL">View AAPL Mock Data</Link>
-  </div>
-);
-
-const CompanyPage = () => (
-  <div style={{ padding: "2rem" }}>
-    <h1>Company Research Page</h1>
-    <Link to="/">Back to Radar</Link>
-  </div>
-);
+import RadarPage from "./pages/RadarPage";
+import CompanyPage from "./pages/CompanyPage";
 
 const ErrorFallback = () => (
   <div style={{ padding: "2rem", color: "red" }}>
