@@ -115,19 +115,50 @@ export default function CompanyPage() {
             </Panel>
           </div>
 
-          {/* Section 5, 6, 7: Statistical & ML Panels (Placeholders for Issue #23) */}
-          <div className="ie-grid">
-            <Panel title="Anomaly & Activity Evidence">
-              <p className="ie-muted">
-                Detailed statistics will be implemented in Issue #23.
-              </p>
-            </Panel>
-            <Panel title="ML Prediction">
-              <p className="ie-muted">
-                Detailed prediction metrics will be implemented in Issue #23.
-              </p>
-            </Panel>
-          </div>
+          {/* Section 5, 6, 7: Detailed Statistics Panels */}
+          {data.latest_signal ? (
+            <div className="ie-grid">
+              <Panel title="Quantitative Evidence">
+                <dl className="ie-stack">
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <dt className="ie-muted">Statistical Anomaly</dt>
+                    <dd className="ie-number"><strong>{data.latest_signal.anomaly_score?.toFixed(1) || '—'}</strong> / 100</dd>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <dt className="ie-muted">Activity Concentration</dt>
+                    <dd className="ie-number"><strong>{data.latest_signal.activity_score?.toFixed(1) || '—'}</strong> / 100</dd>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <dt className="ie-muted">Market Dislocation</dt>
+                    <dd className="ie-number"><strong>{data.latest_signal.dislocation_score?.toFixed(1) || '—'}</strong> / 100</dd>
+                  </div>
+                </dl>
+              </Panel>
+
+              <Panel title="Machine Learning Prediction">
+                <dl className="ie-stack">
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <dt className="ie-muted">Outperformance Probability</dt>
+                    <dd className="ie-number">
+                      <strong>
+                        {data.latest_signal.ml_outperformance_probability !== null 
+                          ? `${(data.latest_signal.ml_outperformance_probability * 100).toFixed(1)}%` 
+                          : '—'}
+                      </strong>
+                    </dd>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <dt className="ie-muted">Model Status</dt>
+                    <dd>
+                      {data.latest_signal.ml_outperformance_probability !== null 
+                        ? <span className="ie-badge ie-badge--info">Inference complete</span>
+                        : <span className="ie-badge ie-badge--neutral">Data insufficient</span>}
+                    </dd>
+                  </div>
+                </dl>
+              </Panel>
+            </div>
+          ) : null}
 
           {/* Section 8: Price Chart (Placeholder for Issue #22) */}
           <Panel title="Historical Price & Events">
