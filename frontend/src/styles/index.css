@@ -101,12 +101,13 @@ h3 {
   letter-spacing: -0.025em;
 }
 .ie-brand-mark {
-  background: #274570;
-  border: 1px solid #5b7cac;
-  border-radius: 7px;
-  padding: 4px 7px;
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 5px 8px;
   font-size: 13px;
-  letter-spacing: 0;
+  font-weight: 800;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
 }
 .ie-navigation {
   display: flex;
@@ -253,21 +254,24 @@ h3 {
   align-items: center;
   min-height: 40px;
   padding: 8px 14px;
-  border: 1px solid #c9d4e3;
+  border: 1px solid var(--ie-border);
   border-radius: 6px;
-  background: white;
+  background: rgba(255, 255, 255, 0.05); /* Translucent dark instead of white */
   color: var(--ie-text);
   text-decoration: none;
   font-weight: 600;
   cursor: pointer;
-  transition:
-    background-color var(--ie-duration-fast),
-    border-color var(--ie-duration-fast),
-    box-shadow var(--ie-duration-fast);
+  transition: all var(--ie-duration-fast);
 }
 .ie-button:hover {
-  background: #f1f5fb;
-  border-color: #9bb0d0;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #475569;
+}
+.ie-button:disabled {
+  cursor: default;
+  color: #64748b;
+  background: rgba(0, 0, 0, 0.2);
+  border-color: var(--ie-border);
 }
 .ie-button:active {
   background: rgba(255, 255, 255, 0.05);
@@ -391,10 +395,28 @@ h3 {
   text-align: left;
 }
 .ie-table th {
-  background: #f6f8fb;
+  background: rgba(0, 0, 0, 0.2);
   color: var(--ie-muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.ie-table tbody tr:hover,
+.ie-table tbody tr:focus-within {
+  background: rgba(59, 130, 246, 0.1) !important; /* Subtle blue highlight */
+}
+.ie-table td.ie-priority-column {
+  font-size: 18px;
+  font-weight: 700;
+  background: rgba(59, 130, 246, 0.05);
+  color: #fff;
+}
+.ie-metric-grid > div {
+  padding: var(--ie-space-3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
 }
 .ie-table th,
 .ie-table td {
