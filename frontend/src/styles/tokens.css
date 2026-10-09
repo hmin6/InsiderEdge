@@ -1,0 +1,28 @@
+:root {
+  color-scheme: light;
+  --ie-nav: #111d32;
+  --ie-workspace: #f3f6fa;
+  --ie-surface: #ffffff;
+  --ie-text: #18263b;
+  --ie-muted: #526278;
+  --ie-border: #dce3ed;
+  --ie-primary: #2157c8;
+  --ie-primary-hover: #18449f;
+  --ie-focus: #1763dd;
+  --ie-radius: 10px;
+  --ie-shadow: 0 2px 8px rgb(17 29 50 / 4%);
+  --ie-space-1: 4px;
+  --ie-space-2: 8px;
+  --ie-space-3: 12px;
+  --ie-space-4: 16px;
+  --ie-space-5: 24px;
+  --ie-space-6: 32px;
+  --ie-duration-fast: 150ms;
+  --ie-duration-normal: 220ms;
+  --ie-duration-slow: 300ms;
+  --ie-ease: cubic-bezier(.2, .7, .2, 1);
+  --ie-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --ie-duration-fast: 0ms; --ie-duration-normal: 0ms; --ie-duration-slow: 0ms; }
+}
