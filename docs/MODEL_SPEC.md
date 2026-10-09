@@ -218,6 +218,37 @@ Convert sector gap and drawdown magnitude to empirical percentiles across the un
 D = 0.60 * SectorGapPercentile + 0.40 * DrawdownPercentile
 ```
 
+The reference cross-section is the ticker list in the repository's frozen
+`config/universe.csv`, with one observation per ticker. This frozen membership
+is used for every scoring date; it is **not** a historical point-in-time index
+reconstruction and can create survivorship/selection bias. For each event,
+reference features are recomputed using only valid `analysis_price` observations
+strictly before that event's `information_date`. The stock and its mapped sector
+ETF must have the required 91 aligned observations for their 90-session returns;
+drawdown is calculated from the stock's same 91 pre-information-date prices.
+Missing ticker-to-sector-ETF mapping or price coverage leaves the sector gap
+unavailable.
+
+Each component percentile is computed independently from its finite values in
+the frozen-universe cross-section at that event's information date. The target
+ticker is included when its component value is valid. Use the empirical midrank
+percentile:
+
+```text
+100 * (count(reference < value) + 0.5 * count(reference == value)) / n
+```
+
+Values outside the reference range map to 0 or 100. Ties therefore receive the
+average empirical rank. Require at least
+`MIN_DISLOCATION_REFERENCE = 10` valid values for **each** component. If either
+the target component or its reference distribution is unavailable/insufficient,
+`D` is unavailable; do not impute zero or renormalize the 60/40 weights.
+
+The existing `drawdown_90d` is zero or negative (`last_price / trailing_peak -
+1`), so drawdown magnitude for the percentile is `abs(drawdown_90d)`. A larger
+`D` indicates greater dislocation / research priority, not a trading
+recommendation.
+
 ## 11. ML target
 
 One ML row is the same company research event used by quant/inference.
