@@ -69,7 +69,7 @@ class ResearchEvent(Base):
     source_transaction_count = Column(Integer, nullable=False)
     source_filing_count = Column(Integer, nullable=False)
     aggregate_purchase_value = Column(Numeric)
-    unique_buyer_count = Column(Integer, nullable=False)
+    unique_buyer_count = Column(Integer, nullable=True)
     role_bucket = Column(Text, nullable=False, index=True)
     has_executive = Column(Boolean, nullable=False)
     has_director = Column(Boolean, nullable=False)
