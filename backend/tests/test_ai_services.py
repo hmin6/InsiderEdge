@@ -9,6 +9,7 @@ import re
 from unittest.mock import Mock
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
@@ -137,6 +138,7 @@ def test_latest_event_never_borrows_older_signal(setup):
 @pytest.mark.parametrize('malformed', [None, [], 'raw text', {'why_flagged': []},
     {**SECTIONS, 'extra_score': 99}, {**SECTIONS, 'risk_evidence': [123]},
     {**SECTIONS, 'risk_evidence': [' ']}, {**SECTIONS, 'risk_evidence': ['x'*701]},
+    {**SECTIONS, 'risk_evidence': ['']}, {**SECTIONS, 'risk_evidence': ['valid'] * 9},
     {**SECTIONS, 'risk_evidence': ['Buy this company.']},
     {**SECTIONS, 'risk_evidence': ['Insider buying caused the returns.']},
     {**SECTIONS, 'risk_evidence': ['<script>unsafe</script>']}])
@@ -214,6 +216,42 @@ def gemini_envelope(sections=SECTIONS, **changes):
         'parts':[{'text':json.dumps(sections)}]},**changes}]}).encode()
 
 
+def test_provider_bound_schema_uses_supported_subset(setup, monkeypatch):
+    client, _, _ = setup
+    monkeypatch.setenv('GEMINI_API_KEY', 'synthetic-key')
+    post = Mock(return_value=(gemini_envelope(), 'application/json'))
+    monkeypatch.setattr(ai_providers, 'post', post)
+    assert client.post('/api/companies/AAPL/explain').status_code == 200
+    post.assert_called_once()
+    payload = post.call_args.args[2]
+    output = payload['generationConfig']['responseFormat']['text']
+    assert output['mimeType'] == 'APPLICATION_JSON'
+    schema = output['schema']
+    assert schema == {
+        'type': 'object',
+        'properties': {name: {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 8}
+                       for name in SECTIONS},
+        'required': list(SECTIONS),
+        'additionalProperties': False,
+    }
+    assert 'minLength' not in json.dumps(schema)
+    assert 'maxLength' not in json.dumps(schema)
+    assert set(schema['properties']) == set(ai_research.ExplanationSections.model_fields)
+
+
+@pytest.mark.parametrize('invalid', [
+    {**SECTIONS, 'why_flagged': ['']},
+    {**SECTIONS, 'why_flagged': [' ']},
+    {**SECTIONS, 'why_flagged': ['x' * 701]},
+    {**SECTIONS, 'why_flagged': ['valid'] * 9},
+    {**SECTIONS, 'extra': []},
+    {**SECTIONS, 'why_flagged': [123]},
+])
+def test_application_validator_remains_strict(invalid):
+    with pytest.raises(ValidationError):
+        ai_research.ExplanationSections.model_validate(invalid)
+
+
 def test_gemini_adapter_wire_format_and_environment(monkeypatch):
     monkeypatch.setenv('GEMINI_API_KEY','synthetic-gemini-key')
     monkeypatch.setenv('GEMINI_MODEL','configured-model')
@@ -224,7 +262,7 @@ def test_gemini_adapter_wire_format_and_environment(monkeypatch):
     url,headers,payload,timeout,limit=post.call_args.args
     assert url.endswith('/configured-model:generateContent') and '?' not in url
     assert headers=={'x-goog-api-key':'synthetic-gemini-key'}
-    assert payload['generationConfig']['responseFormat']['text']['mimeType']=='application/json'
+    assert payload['generationConfig']['responseFormat']['text']['mimeType']=='APPLICATION_JSON'
     assert payload['systemInstruction']['parts'][0]['text']=='instructions'
     assert timeout==30 and limit==256*1024
     assert 'synthetic-gemini-key' not in str(payload)
@@ -303,6 +341,7 @@ def test_transport_size_bounds_and_redirect_protection(monkeypatch, body):
     with pytest.raises(ProviderFailure, match='request unavailable'):
         REAL_POST('https://provider.invalid', {'x-test-key':'synthetic-private'}, {}, 2, 16)
     assert opener.open.call_args.kwargs['timeout'] == 2
+    assert opener.open.call_args.args[0].get_header('Content-type') == 'application/json'
     response.read.assert_called_once_with(17)
     assert isinstance(factory.call_args.args[0], ai_providers.NoRedirect)
     assert factory.call_args.args[0].redirect_request(None) is None

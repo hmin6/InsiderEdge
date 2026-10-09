@@ -21,6 +21,18 @@ class ExplanationSections(BaseModel):
     limitations: Section
 
 
+def gemini_output_schema():
+    """Gemini's supported subset; strict text constraints remain application-side."""
+    fields = ('why_flagged', 'supportive_evidence', 'risk_evidence', 'uncertainty', 'limitations')
+    return {
+        'type': 'object',
+        'properties': {name: {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 8}
+                       for name in fields},
+        'required': list(fields),
+        'additionalProperties': False,
+    }
+
+
 INSTRUCTIONS = """You explain InsiderEdge structured evidence for research priority only.
 This is not investment advice. Never recommend buy, sell or hold, personalize
 advice, promise returns, or claim insider buying caused subsequent returns.
@@ -48,7 +60,7 @@ include a ticker field, markdown, HTML, links, executable content or extra keys.
 
 def explain(evidence, provider):
     try:
-        result = provider.generate(INSTRUCTIONS, evidence.model_dump_json(), ExplanationSections.model_json_schema())
+        result = provider.generate(INSTRUCTIONS, evidence.model_dump_json(), gemini_output_schema())
         sections = ExplanationSections.model_validate(result)
         for values in sections.model_dump().values():
             for statement in values:

@@ -51,7 +51,7 @@ class GeminiProvider:
             'systemInstruction': {'parts': [{'text': instructions}]},
             'contents': [{'role': 'user', 'parts': [{'text': evidence}]}],
             'generationConfig': {'candidateCount': 1, 'maxOutputTokens': 4096,
-                                 'responseFormat': {'text': {'mimeType': 'application/json', 'schema': schema}}},
+                                 'responseFormat': {'text': {'mimeType': 'APPLICATION_JSON', 'schema': schema}}},
         }
         body, mime = post(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
                           {'x-goog-api-key': key}, payload, timeout, 256 * 1024)
