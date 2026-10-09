@@ -1,13 +1,6 @@
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import RadarPage from "./pages/RadarPage";
 import { AppShell, PageContainer, Panel, PanelSkeleton, ProductHeader, RoleBadge, ScoreStatusBadge, StateMessage, StatusBadge } from './components';
-
-// Placeholder components to validate routing for Issue #19
-const RadarPage = () => (
-  <div style={{ padding: "2rem" }}>
-    <h1>Market Dislocation Radar</h1>
-    <Link to="/company/AAPL">View AAPL Mock Data</Link>
-  </div>
-);
 
 const CompanyPage = () => (
   <div style={{ padding: "2rem" }}>
