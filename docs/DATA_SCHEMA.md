@@ -96,7 +96,7 @@ Required fields:
 | `source_transaction_count` | number of qualifying underlying transactions |
 | `source_filing_count` | number of source filings |
 | `aggregate_purchase_value` | sum of valid transaction values |
-| `unique_buyer_count` | unique underlying buyers |
+| `unique_buyer_count` | unique supported underlying buyers; nullable when source evidence cannot reliably associate buyers with qualifying transactions; unknown is NULL, never zero |
 | `role_bucket` | `Executive`, `Director`, or `Other` |
 | `has_executive` | boolean |
 | `has_director` | boolean |

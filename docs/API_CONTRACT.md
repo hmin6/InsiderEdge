@@ -139,7 +139,7 @@ type ResearchEventSummary = {
   source_transaction_count: number
   source_filing_count: number
   aggregate_purchase_value: number | null
-  unique_buyer_count: number
+  unique_buyer_count: number | null
   role_bucket: "Executive" | "Director" | "Other"
   has_executive: boolean
   has_director: boolean

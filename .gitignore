@@ -9,3 +9,4 @@ data/sec_cache/
 data/sec_ingestion_report.json
 data/universe_sources/
 data/market_ingestion_report.json
+data/event_dataset_report.json
