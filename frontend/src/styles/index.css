@@ -1,6 +1,13 @@
 @import './tokens.css';
 @import './score.css';
 
+.ie-explanation-sections { display: grid; gap: var(--ie-space-5); }
+.ie-explanation-sections section { overflow-wrap: anywhere; }
+.ie-explanation-sections ul { margin: 8px 0 0; padding-left: 20px; }
+.ie-explanation-sections li + li { margin-top: 8px; }
+.ie-explanation-sections h3 + p { margin-top: 8px; }
+@media (prefers-reduced-motion: reduce) { .ie-explanation-sections { animation: none !important; } }
+
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--ie-workspace); color: var(--ie-text); font: 14px/1.55 var(--ie-font); }
 button, input, select, textarea { font: inherit; }
