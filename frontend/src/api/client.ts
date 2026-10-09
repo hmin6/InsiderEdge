@@ -1,35 +1,44 @@
 import { RadarResponse, CompanyResponse, PricesResponse, InsidersResponse } from "../types/api";
 import { DEV_MOCK_RADAR, DEV_MOCK_COMPANY, DEV_MOCK_PRICES, DEV_MOCK_INSIDERS } from "./mocks";
+import { ApiError, getJson } from './http';
+import type { StatisticsResponse, PredictionResponse } from '../types/research';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-const USE_MOCKS = true; // Toggle this when Person 1 finishes the backend
+const BASE_URL = import.meta.env?.VITE_API_BASE_URL || "http://localhost:8000";
+export const usingResearchMocks = Boolean(import.meta.env?.DEV && import.meta.env?.VITE_USE_MOCKS !== 'false');
+const USE_MOCKS = usingResearchMocks;
+export function mockCompany(ticker: string): CompanyResponse {
+  if (ticker.toUpperCase() !== DEV_MOCK_COMPANY.ticker) throw new ApiError(404);
+  return structuredClone(DEV_MOCK_COMPANY);
+}
+const companyUrl = (ticker: string) => `${BASE_URL.replace(/\/$/, '')}/api/companies/${encodeURIComponent(ticker.toUpperCase())}`;
 
-export const fetchRadar = async (): Promise<RadarResponse> => {
-  if (USE_MOCKS) return DEV_MOCK_RADAR;
-  const res = await fetch(`${BASE_URL}/api/radar`);
-  if (!res.ok) throw new Error("Failed to fetch radar");
-  return res.json();
+export const fetchRadar = async (signal?: AbortSignal): Promise<RadarResponse> => {
+  if (USE_MOCKS) return structuredClone(DEV_MOCK_RADAR);
+  return getJson(`${BASE_URL}/api/radar`, signal);
 };
 
 export const fetchCompany = async (
   ticker: string,
+  signal?: AbortSignal,
 ): Promise<CompanyResponse> => {
-  if (USE_MOCKS) return DEV_MOCK_COMPANY;
-  const res = await fetch(`${BASE_URL}/api/companies/${ticker}`);
-  if (!res.ok) throw new Error("Failed to fetch company");
-  return res.json();
+  if (USE_MOCKS) return mockCompany(ticker);
+  return getJson(companyUrl(ticker), signal);
 };
 
-export const fetchPrices = async (ticker: string): Promise<PricesResponse> => {
-  if (USE_MOCKS) return DEV_MOCK_PRICES;
-  const res = await fetch(`${BASE_URL}/api/companies/${ticker}/prices`);
-  if (!res.ok) throw new Error("Failed to fetch prices");
-  return res.json();
+export const fetchPrices = async (ticker: string, signal?: AbortSignal): Promise<PricesResponse> => {
+  if (USE_MOCKS) { mockCompany(ticker); return structuredClone(DEV_MOCK_PRICES); }
+  return getJson(`${companyUrl(ticker)}/prices`, signal);
 };
 
-export const fetchInsiders = async (ticker: string): Promise<InsidersResponse> => {
-  if (USE_MOCKS) return DEV_MOCK_INSIDERS;
-  const res = await fetch(`${BASE_URL}/api/companies/${ticker}/insiders`);
-  if (!res.ok) throw new Error("Failed to fetch insiders");
-  return res.json();
+export const fetchInsiders = async (ticker: string, signal?: AbortSignal): Promise<InsidersResponse> => {
+  if (USE_MOCKS) { mockCompany(ticker); return structuredClone(DEV_MOCK_INSIDERS); }
+  return getJson(`${companyUrl(ticker)}/insiders`, signal);
 };
+export async function fetchStatistics(ticker: string, signal?: AbortSignal): Promise<StatisticsResponse> {
+  if (USE_MOCKS) throw new ApiError(503); // No invented statistical evidence.
+  return getJson(`${companyUrl(ticker)}/statistics`, signal);
+}
+export async function fetchPrediction(ticker: string, signal?: AbortSignal): Promise<PredictionResponse> {
+  if (USE_MOCKS) throw new ApiError(503);
+  return getJson(`${companyUrl(ticker)}/prediction`, signal);
+}

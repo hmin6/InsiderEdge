@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchRadar } from "../api/client";
-import { RadarItem } from "../types/api";
+import { fetchRadar, usingResearchMocks } from "../api/client";
+import { useResource } from '../hooks/useResource';
+import { rankRadar, numeric } from '../components/ResearchStates';
 import {
   AppShell,
   PageContainer,
@@ -12,26 +12,9 @@ import {
 } from "../components";
 
 export default function RadarPage() {
-  const [data, setData] = useState<RadarItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    fetchRadar()
-      .then((res) => {
-        const sorted = res.items.sort((a, b) => {
-          const scoreA = a.insider_edge_score ?? 0;
-          const scoreB = b.insider_edge_score ?? 0;
-          return scoreB - scoreA;
-        });
-        setData(sorted);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError(true);
-        setLoading(false);
-      });
-  }, []);
+  const resource = useResource('radar', fetchRadar);
+  const { loading, error, retry } = resource;
+  const data = rankRadar(resource.data?.items || []);
 
   const shellNavigation = [{ label: "Radar", href: "/", current: true }];
 
@@ -51,7 +34,7 @@ export default function RadarPage() {
       <AppShell navigation={shellNavigation}>
         <PageContainer>
           <ProductHeader title="Market Dislocation Radar" />
-          <StateMessage kind="error" title="Unable to load Radar">
+          <StateMessage kind="error" title="Unable to load Radar" actions={<button className="ie-button" onClick={retry}>Retry Radar</button>}>
             Failed to fetch current signals.
           </StateMessage>
         </PageContainer>
@@ -68,7 +51,9 @@ export default function RadarPage() {
           description="High score indicates research priority, not an investment recommendation."
         />
 
-        <div className="ie-panel ie-table-scroll">
+        {usingResearchMocks && <p className="ie-muted">Development mock data · Not measured research results.</p>}
+        {!data.length && <StateMessage title="No research events available" actions={<button className="ie-button" onClick={retry}>Refresh Radar</button>}>No ranked signals are available. Please check again later.</StateMessage>}
+        <div className="ie-panel ie-table-scroll ie-radar-region" tabIndex={0} aria-label="Research priority table">
           <table className="ie-table">
             <thead>
               <tr>
@@ -100,22 +85,20 @@ export default function RadarPage() {
                     <ScoreStatusBadge status={item.score_status} />
                   </td>
                   <td className="ie-number">
-                    {item.anomaly_score?.toFixed(1) ?? "—"}
+                    {numeric(item.anomaly_score)}
                   </td>
                   <td className="ie-number">
-                    {item.activity_score?.toFixed(1) ?? "—"}
+                    {numeric(item.activity_score)}
                   </td>
                   <td className="ie-number">
-                    {item.dislocation_score?.toFixed(1) ?? "—"}
+                    {numeric(item.dislocation_score)}
                   </td>
                   <td className="ie-number">
-                    {item.ml_outperformance_probability !== null
-                      ? `${(item.ml_outperformance_probability * 100).toFixed(1)}%`
-                      : "—"}
+                    {numeric(item.ml_outperformance_probability, true)}
                   </td>
                   <td className="ie-number">
                     <strong>
-                      {item.insider_edge_score?.toFixed(1) ?? "—"}
+                      {numeric(item.insider_edge_score)}
                     </strong>
                   </td>
                 </tr>

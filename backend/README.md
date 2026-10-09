@@ -1,6 +1,7 @@
 # Backend foundation — Issue #1
 
 SEC bulk/XML ingestion instructions: [SEC_INGESTION.md](SEC_INGESTION.md).
+Historical daily price ingestion: [MARKET_INGESTION.md](MARKET_INGESTION.md).
 Frozen company universe and the existing-database CIK correction: [config/README.md](../config/README.md).
 
 From the repository root (PowerShell):
