@@ -32,7 +32,8 @@ databases. No dependency or schema change is introduced by Issue #6.
 When unset, it defaults to `http://localhost:5173,http://127.0.0.1:5173`.
 An explicitly empty value disables cross-origin allowances. Set the deployed
 frontend's exact origin in production. Wildcards, credentials in origins and
-paths are rejected; GET and Accept are allowed, without credentialed CORS.
+paths are rejected; GET/POST and Accept/Content-Type are allowed, without
+credentialed CORS (POST supports the Issue #8 AI endpoints).
 `.env.example` contains only safe localhost examples. Restart after configuration
 changes, including changes to database credentials or allowed origins.
 

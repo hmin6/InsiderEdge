@@ -1,4 +1,4 @@
-"""Issue #6 response shapes from docs/API_CONTRACT.md."""
+"""Issue #6 read and Issue #8 AI response shapes from docs/API_CONTRACT.md."""
 from datetime import date
 from typing import Annotated, Literal
 
@@ -104,3 +104,20 @@ class InsidersResponse(ResponseModel):
     ticker: str
     transactions: list[InsiderTransaction]
     research_events: list[ResearchEventSummary]
+
+
+class ExplainResponse(ResponseModel):
+    ticker: str
+    why_flagged: list[str]
+    supportive_evidence: list[str]
+    risk_evidence: list[str]
+    uncertainty: list[str]
+    limitations: list[str]
+
+
+class BriefResponse(ResponseModel):
+    ticker: str
+    transcript: str
+    audio_base64: str | None
+    audio_mime_type: str | None
+    status: Literal['ok', 'audio_unavailable']
