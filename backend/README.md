@@ -4,6 +4,7 @@ SEC bulk/XML ingestion instructions: [SEC_INGESTION.md](SEC_INGESTION.md).
 Historical daily price ingestion: [MARKET_INGESTION.md](MARKET_INGESTION.md).
 Merged research-event dataset and nullable buyer-count migration: [EVENT_DATASET.md](EVENT_DATASET.md).
 Core read endpoints and CORS configuration: [CORE_API.md](CORE_API.md).
+Gemini explanations and optional ElevenLabs briefs: [AI_SERVICES.md](AI_SERVICES.md).
 Frozen company universe and the existing-database CIK correction: [config/README.md](../config/README.md).
 
 From the repository root (PowerShell):

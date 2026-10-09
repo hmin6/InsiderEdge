@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.health import router
 from app.api.core import router as core_router
+from app.api.ai import router as ai_router
 
 
 def cors_origins():
@@ -47,7 +48,7 @@ def create_app():
     app.state.database = None
     app.state.database_lock = Lock()
     app.add_middleware(CORSMiddleware, allow_origins=cors_origins(), allow_credentials=False,
-                       allow_methods=['GET'], allow_headers=['Accept'])
+                       allow_methods=['GET', 'POST'], allow_headers=['Accept', 'Content-Type'])
 
     async def unavailable(request, error):
         return JSONResponse(status_code=503, content={'detail': 'Research data unavailable'})
@@ -55,6 +56,7 @@ def create_app():
     app.add_exception_handler(ValidationError, unavailable)
     app.include_router(router)
     app.include_router(core_router)
+    app.include_router(ai_router)
     return app
 
 
