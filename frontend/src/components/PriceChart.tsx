@@ -115,3 +115,4 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
       </ResponsiveContainer>
     </div>
  );
+}
