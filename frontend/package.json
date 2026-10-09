@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "tsx --test src/components/ui.test.tsx"
+    "test": "tsx --test src/components/*.test.tsx"
   },
   "dependencies": {
     "react": "^18.3.1",

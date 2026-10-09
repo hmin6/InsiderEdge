@@ -15,6 +15,7 @@ import {
   StateMessage,
   InsiderEdgeScore,
   PriceChart,
+  AnalystBrief,
 } from "../components";
 
 export default function CompanyPage() {
@@ -174,11 +175,7 @@ export default function CompanyPage() {
                 AI explanation will be implemented in Issue #28.
               </p>
             </Panel>
-            <Panel title="Analyst Audio Brief">
-              <p className="ie-muted">
-                ElevenLabs audio will be implemented in Issue #29.
-              </p>
-            </Panel>
+            <AnalystBrief ticker={data.ticker} evidenceKey={data.latest_public_event_day || 'no-event'} />
           </div>
         </div>
       </PageContainer>
