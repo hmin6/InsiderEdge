@@ -1,6 +1,9 @@
 @import './tokens.css';
 @import './score.css';
 
+.ie-chart-region { min-height: 400px; }
+.ie-reserved-panel, .ie-radar-region { min-height: 210px; }
+
 .ie-explanation-sections { display: grid; gap: var(--ie-space-5); }
 .ie-explanation-sections section { overflow-wrap: anywhere; }
 .ie-explanation-sections ul { margin: 8px 0 0; padding-left: 20px; }

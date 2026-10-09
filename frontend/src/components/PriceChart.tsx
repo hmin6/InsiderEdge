@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import {
   LineChart,
   Line,
@@ -17,6 +17,14 @@ interface PriceChartProps {
 }
 
 export function PriceChart({ prices, transactions }: PriceChartProps) {
+  const [reducedMotion, setReducedMotion] = useState(true);
+  useEffect(() => {
+    const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReducedMotion(preference.matches);
+    update();
+    preference.addEventListener('change', update);
+    return () => preference.removeEventListener('change', update);
+  }, []);
   const markers = useMemo(() => {
     return transactions
       .filter(t => t.is_p0_qualifying && t.filing_date)
@@ -24,10 +32,10 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
         const pricePoint = prices.find(p => p.date === t.filing_date);
         return {
           ...t,
-          chartPrice: pricePoint?.analysis_price || pricePoint?.close || 0
+          chartPrice: pricePoint?.analysis_price ?? null
         };
       })
-      .filter(t => t.chartPrice > 0);
+      .filter((t): t is typeof t & { chartPrice: number } => t.chartPrice !== null && Number.isFinite(t.chartPrice) && t.chartPrice > 0);
   }, [prices, transactions]);
 
   if (!prices.length) {
@@ -62,6 +70,7 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
             strokeWidth={2} 
             dot={false}
             animationDuration={300}
+            isAnimationActive={!reducedMotion}
           />
           
           {markers.map((marker, idx) => (

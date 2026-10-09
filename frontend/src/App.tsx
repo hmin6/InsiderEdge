@@ -1,14 +1,10 @@
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
-import RadarPage from "./pages/RadarPage";
-import { AppShell, PageContainer, Panel, PanelSkeleton, ProductHeader, RoleBadge, ScoreStatusBadge, StateMessage, StatusBadge } from './components';
+import { AppShell, PageContainer, Panel, PanelSkeleton, ProductHeader, RoleBadge, ScoreStatusBadge, StateMessage, StatusBadge, PanelBoundary } from './components';
 import RadarPage from "./pages/RadarPage";
 import CompanyPage from "./pages/CompanyPage";
 
 const ErrorFallback = () => (
-  <div style={{ padding: "2rem", color: "red" }}>
-    <h2>Application Error</h2>
-    <p>Something went wrong loading the UI.</p>
-  </div>
+  <AppShell navigation={[{ label: 'Radar', href: '/' }]}><PageContainer><StateMessage title="Page not found" actions={<Link className="ie-button" to="/">Return to Radar</Link>}>This research page does not exist.</StateMessage></PageContainer></AppShell>
 );
 
 function VisualSystemPreview() {
@@ -34,8 +30,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<RadarPage />} />
-        <Route path="/company/:ticker" element={<CompanyPage />} />
+        <Route path="/" element={<PanelBoundary label="Radar"><RadarPage /></PanelBoundary>} />
+        <Route path="/company/:ticker" element={<PanelBoundary label="Company research"><CompanyPage /></PanelBoundary>} />
         <Route path="*" element={<ErrorFallback />} />
       </Routes>
     </BrowserRouter>
