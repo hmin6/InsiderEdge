@@ -75,13 +75,46 @@ QUANTITATIVE_CLAIM = re.compile(
     r'[$\u00a3\u20ac]?[+-]?\d+(?:[.,]\d+)*(?![\w/:-]|\.\d)', re.I)
 
 
+TOKEN_LOG_LIMIT = 64
+
+
+def numeric_token_kind(token):
+    if token.startswith(('$', '\u00a3', '\u20ac')):
+        return 'currency'
+    if re.search(r'%|percent|basis points?', token, re.I):
+        return 'percentage'
+    if re.fullmatch(r'\d{4}-\d{1,2}-\d{1,2}', token):
+        return 'date_like'
+    if re.fullmatch(r'\d+(?:[-:/]\d+)+', token):
+        return 'identifier_like'
+    if decimal_value(token) is not None:
+        if ',' in token:
+            return 'grouped_decimal'
+        return 'decimal' if '.' in token else 'integer'
+    return 'other_numeric'
+
+
+class NumericGroundingFailure(ValueError):
+    """Only an isolated bounded numeric token is retained, never source text."""
+    def __init__(self, token, kind=None):
+        super().__init__('Numeric grounding rejected')
+        isolated = re.sub(r'\s+', ' ', token)
+        self.rejected_token = isolated[:TOKEN_LOG_LIMIT]
+        if len(isolated) > TOKEN_LOG_LIMIT:
+            # Do not leave a partial unit word after truncation.
+            self.rejected_token = re.sub(r'[A-Za-z ]+$', '', self.rejected_token)
+        self.token_kind = kind or numeric_token_kind(token)
+
+
 def numeric_tokens(text, require_complete=False):
     matches = list(NUMERIC_TOKEN.finditer(text))
     if require_complete:
         covered = {position for match in matches for position in range(*match.span())}
-        if any(character.isdigit() and position not in covered
-               for position, character in enumerate(text)):
-            raise ValueError('Unrecognized numeric format')
+        for position, character in enumerate(text):
+            if character.isdigit() and position not in covered:
+                # Unknown formats yield only the first uncovered digit run.
+                isolated = re.match(r'\d+', text[position:]).group(0)
+                raise NumericGroundingFailure(isolated, 'other_numeric')
     return {match.group(0) for match in matches}
 
 
@@ -194,15 +227,20 @@ class SnowflakeProvider:
                     category = 'numeric_grounding_rejected'
                     numbers = numeric_tokens(text, require_complete=True)
                     if not numbers_grounded(numbers, grounded_numbers):
-                        raise ValueError
+                        first = next(match.group(0) for match in NUMERIC_TOKEN.finditer(text)
+                                     if not numbers_grounded({match.group(0)}, grounded_numbers))
+                        raise NumericGroundingFailure(first)
                     # These quantitative outputs are never supplied to this provider.
                     category = 'safety_language_rejected'
                     if QUANTITATIVE_CLAIM.search(text):
                         raise ValueError
             return model, context
-        except Exception:
-            raise ai_providers.ProviderFailure('Snowflake response unavailable',
-                                               reason_category=category) from None
+        except Exception as error:
+            failure = ai_providers.ProviderFailure('Snowflake response unavailable',
+                                                   reason_category=category)
+            if category == 'numeric_grounding_rejected' and isinstance(error, NumericGroundingFailure):
+                failure.numeric_diagnostic = (error.rejected_token, error.token_kind)
+            raise failure from None
 
 
 def research(evidence, provider):
@@ -211,12 +249,14 @@ def research(evidence, provider):
                 provenance={'source': 'Persisted InsiderEdge research event and frozen company metadata',
                             'evidence': evidence}, limitations=LIMITATIONS)
     category = 'research_event_missing'
+    numeric_diagnostic = None
     if event:
         try:
             model, context = provider.generate(evidence)
             return ResearchResponse(**base, model=model, status='available', context=context)
         except (ai_providers.ProviderFailure, ValueError, TypeError) as error:
             category = getattr(error, 'reason_category', 'unexpected_error')
+            numeric_diagnostic = getattr(error, 'numeric_diagnostic', None)
     # Only fixed categories and validated identifiers; no provider text or exc_info.
     allowed = {'configuration_missing', 'provider_timeout', 'provider_http_error',
                'provider_response_invalid', 'finish_reason_rejected', 'schema_validation_failed',
@@ -228,6 +268,20 @@ def research(evidence, provider):
     identifier = base['research_event_id']
     safe_ticker = ticker if re.fullmatch(r'[A-Z0-9.-]{1,20}', ticker) else 'invalid'
     safe_event = identifier if identifier and re.fullmatch(r'[A-Z0-9.-]{1,20}:\d{4}-\d{2}-\d{2}', identifier) else None
-    logger.warning('Snowflake research unavailable ticker=%s research_event_id=%s reason=%s',
-                   safe_ticker, safe_event, category)
+    if category == 'numeric_grounding_rejected' and numeric_diagnostic is not None:
+        rejected, kind = numeric_diagnostic
+        # Defensive allowlists: no surrounding text, control characters or arbitrary kinds.
+        kinds = {'integer', 'decimal', 'grouped_decimal', 'currency', 'percentage',
+                 'date_like', 'identifier_like', 'other_numeric'}
+        if (isinstance(rejected, str) and len(rejected) <= TOKEN_LOG_LIMIT
+                and re.fullmatch(r'[0-9eE.,:/+%$\u00a3\u20ac -]+(?:percent(?:age)?|basis points?|dollars?|USD|shares?|million|billion|thousand)?', rejected, re.I)
+                and kind in kinds):
+            logger.warning('Snowflake research unavailable ticker=%s research_event_id=%s reason=%s rejected_token=%s token_kind=%s',
+                           safe_ticker, safe_event, category, rejected, kind)
+        else:
+            logger.warning('Snowflake research unavailable ticker=%s research_event_id=%s reason=%s',
+                           safe_ticker, safe_event, category)
+    else:
+        logger.warning('Snowflake research unavailable ticker=%s research_event_id=%s reason=%s',
+                       safe_ticker, safe_event, category)
     return ResearchResponse(**base, status='unavailable')

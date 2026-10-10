@@ -400,3 +400,64 @@ def test_decimal_normalization_does_not_normalize_identifiers():
     assert not numbers_grounded({'2026-3-16'}, {'2026-03-16'})
     assert not numbers_grounded({'1-26-4'}, {'0000000001-26-000004'})
     assert numbers_grounded({'250072'}, {'250072.000'})
+
+
+@pytest.mark.parametrize('numeric,kind', [
+    ('98765', 'integer'), ('98765.43', 'decimal'), ('98,765.43', 'grouped_decimal'),
+    ('$98765', 'currency'), ('98765%', 'percentage'), ('2027-01-02', 'date_like'),
+    ('0000000001-26-999999', 'identifier_like'), ('98765 shares', 'other_numeric'), ('1e99', 'other_numeric'),
+])
+def test_rejected_numeric_token_logged_without_surrounding_text(monkeypatch, caplog, numeric, kind):
+    import logging
+    configure(monkeypatch)
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    evidence = {**EVIDENCE, 'company_name': 'PRIVATE_EVIDENCE_MARKER'}
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        f'RAW_PROVIDER_BEFORE {numeric} RAW_PROVIDER_AFTER 99998.']}, ''), 'application/json'
+    result = research(evidence, SnowflakeProvider())
+    assert result.status == 'unavailable' and result.context is None
+    assert f'rejected_token={numeric} token_kind={kind}' in caplog.text
+    assert 'reason=numeric_grounding_rejected' in caplog.text
+    assert 'ticker=AAPL research_event_id=AAPL:2026-03-16' in caplog.text
+    assert '99998' not in caplog.text
+    for forbidden in ('RAW_PROVIDER_BEFORE', 'RAW_PROVIDER_AFTER', 'synthetic-test-token',
+                      'Authorization', 'PRIVATE_EVIDENCE_MARKER', 'event_context', 'Use only supplied evidence'):
+        assert forbidden not in caplog.text
+    assert all(record.exc_info is None for record in caplog.records)
+    assert 'rejected_token' not in result.model_dump_json()
+    assert 'token_kind' not in result.model_dump_json()
+
+
+def test_rejected_token_length_is_bounded(monkeypatch, caplog):
+    import logging
+    from app.services.snowflake_research import TOKEN_LOG_LIMIT
+    configure(monkeypatch)
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    ai_providers.post.side_effect = None
+    numeric = '9' * 200
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [numeric]}, ''), 'application/json'
+    assert research(EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+    record = next(r for r in caplog.records if r.name == 'app.services.snowflake_research')
+    assert len(record.args[3]) == TOKEN_LOG_LIMIT
+    assert numeric not in caplog.text
+
+
+def test_unrecognized_numeric_format_logs_only_digits(monkeypatch, caplog):
+    import logging
+    configure(monkeypatch)
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': ['PRIVATE99suffix']}, ''), 'application/json'
+    assert research(EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+    assert 'rejected_token=99 token_kind=other_numeric' in caplog.text
+    assert 'PRIVATE' not in caplog.text and 'suffix' not in caplog.text
+
+
+def test_available_result_has_no_rejection_log(monkeypatch, caplog):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body(), 'application/json'
+    result = research(EVIDENCE, SnowflakeProvider())
+    assert result.status == 'available' and result.context.model_dump() == CONTENT
+    assert 'rejected_token' not in caplog.text
