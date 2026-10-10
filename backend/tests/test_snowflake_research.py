@@ -363,3 +363,40 @@ def test_http_error_diagnostic_is_safe(monkeypatch, caplog):
     assert 'reason=provider_http_error' in caplog.text
     for forbidden in ('private.test', 'RAW_PROVIDER_MARKER', 'Authorization', 'synthetic-test-token'):
         assert forbidden not in caplog.text
+
+
+@pytest.mark.parametrize('value', ['250072.030', '250072.03', '250,072.03', '250,072.0300'])
+def test_equivalent_grounded_decimal_formatting(monkeypatch, value):
+    configure(monkeypatch)
+    evidence = {**EVIDENCE, 'event': {**EVIDENCE['event'], 'aggregate_purchase_value': '250072.030'}}
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        f'The recorded aggregate purchase value is {value}.']}, ''), 'application/json'
+    assert research(evidence, SnowflakeProvider()).status == 'available'
+
+
+@pytest.mark.parametrize('statement', [
+    'The value is 250072.04.', 'The value is 250073.', 'The value is 25,0072.03.',
+    'The value is 0250072.03.', 'The value is 250072.03%.',
+    'The price was 250072.03.', 'The return was 250072.03.',
+    'The probability was 250072.03.', 'The score was 250072.03.',
+    'CAR30 was 250072.03.', 'IES was 250072.03.',
+    'The quantity was 250072.03 shares.', 'The date is 2026-03-17.',
+    'The accession is 0000000001-26-000005.',
+])
+def test_decimal_normalization_remains_fail_closed(monkeypatch, statement):
+    configure(monkeypatch)
+    evidence = {**EVIDENCE, 'event': {**EVIDENCE['event'], 'aggregate_purchase_value': '250072.030'},
+                'filings': [{'filing_date': '2026-03-16',
+                             'accession_number': '0000000001-26-000004', 'document_type': '4'}]}
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
+    assert research(evidence, SnowflakeProvider()).status == 'unavailable'
+
+
+def test_decimal_normalization_does_not_normalize_identifiers():
+    from app.services.snowflake_research import numbers_grounded
+    assert not numbers_grounded({'4.0'}, {'4'})
+    assert not numbers_grounded({'2026-3-16'}, {'2026-03-16'})
+    assert not numbers_grounded({'1-26-4'}, {'0000000001-26-000004'})
+    assert numbers_grounded({'250072'}, {'250072.000'})

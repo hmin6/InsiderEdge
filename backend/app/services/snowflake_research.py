@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+from decimal import Decimal
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
@@ -82,6 +83,23 @@ def numeric_tokens(text, require_complete=False):
                for position, character in enumerate(text)):
             raise ValueError('Unrecognized numeric format')
     return {match.group(0) for match in matches}
+
+
+def decimal_value(token):
+    """Only bare decimals/numbers with valid grouping; never identifiers or units."""
+    if not re.fullmatch(r'-?(?:0|[1-9]\d*|[1-9]\d{0,2}(?:,\d{3})+)(?:\.\d+)?', token):
+        return None
+    return Decimal(token.replace(',', ''))
+
+
+def numbers_grounded(numbers, grounded_numbers):
+    # Only decimal evidence enables equivalent formatting. Integer document IDs,
+    # dates, accessions, currencies and unit-bearing tokens retain exact matching.
+    decimals = {value for token in grounded_numbers if '.' in token
+                and (value := decimal_value(token)) is not None}
+    return all(token in grounded_numbers or (
+        (value := decimal_value(token)) is not None and value in decimals)
+        for token in numbers)
 
 
 def assemble(session, company):
@@ -175,7 +193,7 @@ class SnowflakeProvider:
                         raise ValueError
                     category = 'numeric_grounding_rejected'
                     numbers = numeric_tokens(text, require_complete=True)
-                    if not numbers <= grounded_numbers:
+                    if not numbers_grounded(numbers, grounded_numbers):
                         raise ValueError
                     # These quantitative outputs are never supplied to this provider.
                     category = 'safety_language_rejected'
