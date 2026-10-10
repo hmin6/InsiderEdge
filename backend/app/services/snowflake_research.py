@@ -103,7 +103,7 @@ def numeric_token_kind(token):
 
 class NumericGroundingFailure(ValueError):
     """Only an isolated bounded numeric token is retained, never source text."""
-    def __init__(self, token, kind=None):
+    def __init__(self, token, kind=None, source=('standalone', None)):
         super().__init__('Numeric grounding rejected')
         isolated = re.sub(r'\s+', ' ', token)
         self.rejected_token = isolated[:TOKEN_LOG_LIMIT]
@@ -111,6 +111,7 @@ class NumericGroundingFailure(ValueError):
             # Do not leave a partial unit word after truncation.
             self.rejected_token = re.sub(r'[A-Za-z ]+$', '', self.rejected_token)
         self.token_kind = kind or numeric_token_kind(token)
+        self.token_source, self.containing_date = source
 
 
 def numeric_matches(text):
@@ -121,6 +122,15 @@ def numeric_matches(text):
     return sorted([*dates, *generic], key=lambda match: match.start())
 
 
+def numeric_source(matches, start, end):
+    """Classify occurrence spans from the exact matches used by validation."""
+    for match in matches:
+        if (match.start() <= start and end <= match.end()
+                and ISO_DATE_TOKEN.fullmatch(match.group(0))):
+            return 'date_component', match.group(0)
+    return 'standalone', None
+
+
 def numeric_tokens(text, require_complete=False):
     matches = numeric_matches(text)
     if require_complete:
@@ -129,7 +139,8 @@ def numeric_tokens(text, require_complete=False):
             if character.isdigit() and position not in covered:
                 # Unknown formats yield only the first uncovered digit run.
                 isolated = re.match(r'\d+', text[position:]).group(0)
-                raise NumericGroundingFailure(isolated, 'other_numeric')
+                raise NumericGroundingFailure(isolated, 'other_numeric',
+                                              numeric_source(matches, position, position + len(isolated)))
     return {match.group(0) for match in matches}
 
 
@@ -242,9 +253,11 @@ class SnowflakeProvider:
                     category = 'numeric_grounding_rejected'
                     numbers = numeric_tokens(text, require_complete=True)
                     if not numbers_grounded(numbers, grounded_numbers):
-                        first = next(match.group(0) for match in numeric_matches(text)
+                        matches = numeric_matches(text)
+                        first = next(match for match in matches
                                      if not numbers_grounded({match.group(0)}, grounded_numbers))
-                        raise NumericGroundingFailure(first)
+                        raise NumericGroundingFailure(first.group(0), source=numeric_source(
+                            matches, first.start(), first.end()))
                     # These quantitative outputs are never supplied to this provider.
                     category = 'safety_language_rejected'
                     if QUANTITATIVE_CLAIM.search(text):
@@ -254,7 +267,8 @@ class SnowflakeProvider:
             failure = ai_providers.ProviderFailure('Snowflake response unavailable',
                                                    reason_category=category)
             if category == 'numeric_grounding_rejected' and isinstance(error, NumericGroundingFailure):
-                failure.numeric_diagnostic = (error.rejected_token, error.token_kind)
+                failure.numeric_diagnostic = (error.rejected_token, error.token_kind,
+                                              error.token_source, error.containing_date)
             raise failure from None
 
 
@@ -284,15 +298,23 @@ def research(evidence, provider):
     safe_ticker = ticker if re.fullmatch(r'[A-Z0-9.-]{1,20}', ticker) else 'invalid'
     safe_event = identifier if identifier and re.fullmatch(r'[A-Z0-9.-]{1,20}:\d{4}-\d{2}-\d{2}', identifier) else None
     if category == 'numeric_grounding_rejected' and numeric_diagnostic is not None:
-        rejected, kind = numeric_diagnostic
+        rejected, kind, source, containing_date = numeric_diagnostic
         # Defensive allowlists: no surrounding text, control characters or arbitrary kinds.
         kinds = {'integer', 'decimal', 'grouped_decimal', 'currency', 'percentage',
                  'date_like', 'identifier_like', 'other_numeric'}
         if (isinstance(rejected, str) and len(rejected) <= TOKEN_LOG_LIMIT
                 and re.fullmatch(r'[0-9eE.,:/+%$\u00a3\u20ac -]+(?:percent(?:age)?|basis points?|dollars?|USD|shares?|million|billion|thousand)?', rejected, re.I)
-                and kind in kinds):
-            logger.warning('Snowflake research unavailable ticker=%s research_event_id=%s reason=%s rejected_token=%s token_kind=%s',
-                           safe_ticker, safe_event, category, rejected, kind)
+                and kind in kinds and source in {'standalone', 'date_component'}
+                and (source == 'standalone' and containing_date is None
+                     or source == 'date_component' and isinstance(containing_date, str)
+                     and re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', containing_date))):
+            message = ('Snowflake research unavailable ticker=%s research_event_id=%s reason=%s '
+                       'rejected_token=%s token_kind=%s token_source=%s')
+            args = (safe_ticker, safe_event, category, rejected, kind, source)
+            if source == 'date_component':
+                message += ' containing_date=%s'
+                args += (containing_date,)
+            logger.warning(message, *args)
         else:
             logger.warning('Snowflake research unavailable ticker=%s research_event_id=%s reason=%s',
                            safe_ticker, safe_event, category)
