@@ -18,7 +18,7 @@ import {
   Panel,
   PanelSkeleton,
   StateMessage,
-  CompanyScore,
+  InsiderEdgeScore,
   PriceChart,
   AnalystBrief,
   ExplainSignal,
@@ -88,7 +88,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
 
   return (
     <AppShell navigation={navigation}>
-      <PageContainer>
+      <PageContainer className="ie-reveal">
         <ProductHeader
           title={
             data
@@ -103,18 +103,23 @@ function CompanyResearch({ ticker }: { ticker: string }) {
           }
         />
         {usingResearchMocks && (
-          <p className="ie-muted">
+          <p className="ie-muted" style={{ marginBottom: "24px" }}>
             Development mock data · Not measured research results.
           </p>
         )}
 
         {company.loading ? (
           <div className="ie-stack">
-            <PanelSkeleton label="Loading company score" rows={8} />
+            <PanelSkeleton label="Loading company score" rows={4} />
             <div className="ie-grid">
-              <PanelSkeleton label="Loading research evidence" />
-              <PanelSkeleton label="Loading price history" />
+              <PanelSkeleton label="Loading insider activity" rows={2} />
+              <PanelSkeleton label="Loading market context" rows={2} />
             </div>
+            <div className="ie-grid">
+              <PanelSkeleton label="Loading statistics" rows={6} />
+              <PanelSkeleton label="Loading predictions" rows={6} />
+            </div>
+            <PanelSkeleton label="Loading price history" rows={8} />
           </div>
         ) : company.error || !data ? (
           <div className="ie-reserved-panel">
@@ -135,13 +140,23 @@ function CompanyResearch({ ticker }: { ticker: string }) {
         ) : (
           <div className="ie-stack">
             <PanelBoundary label="Score">
-              <CompanyScore data={data} />
+              {data.latest_signal ? (
+                <InsiderEdgeScore evidence={data.latest_signal} />
+              ) : (
+                <Panel title="InsiderEdge Score">
+                  <StateMessage title="No recent insider events">
+                    No recent qualifying insider event is available. No score
+                    has been invented.
+                  </StateMessage>
+                </Panel>
+              )}
             </PanelBoundary>
 
+            {/* Row 2: Insider Activity & Market Context */}
             <div className="ie-grid">
               <Panel title="Recent Insider Activity">
                 {insiders.loading ? (
-                  <PanelSkeleton label="Loading insider history" rows={3} />
+                  <PanelSkeleton label="Loading insider history" rows={2} />
                 ) : insiders.error ? (
                   <StateMessage
                     kind="error"
@@ -155,58 +170,65 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                     No qualifying research events are available in this history.
                   </StateMessage>
                 ) : (
-                  <p>
+                  <p style={{ fontSize: "15px", lineHeight: "1.6" }}>
                     {data.latest_signal?.insider_signal_summary ||
                       "Insider events are available in the historical record."}
                   </p>
                 )}
               </Panel>
+
               <Panel title="Market Context">
-                <p>
-                  Dislocation score:{" "}
-                  {numeric(data.latest_signal?.dislocation_score)}
-                </p>
+                <div className="ie-metric-grid" style={{ marginTop: 0 }}>
+                  <div className="ie-metric-card">
+                    <div className="ie-metric-label">Dislocation Score</div>
+                    <div className="ie-metric-value">
+                      {numeric(data.latest_signal?.dislocation_score)}
+                    </div>
+                  </div>
+                </div>
               </Panel>
             </div>
 
-            <PanelBoundary label="Statistics">
-              {statistics.loading ? (
-                <PanelSkeleton label="Loading statistics" rows={8} />
-              ) : statistics.error || !statistics.data ? (
-                <Panel title="Statistical Evidence">
-                  <StateMessage
-                    kind="error"
-                    title="Statistical evidence unavailable"
-                    actions={retry(statistics.retry)}
-                  >
-                    Anomaly history, event-study CAR5/CAR30/CAR90, and
-                    comparable-event evidence could not be loaded. Missing
-                    values are not zero.
-                  </StateMessage>
-                </Panel>
-              ) : (
-                <StatisticsEvidence data={statistics.data} />
-              )}
-            </PanelBoundary>
+            {/* Row 3: Statistics & Prediction */}
+            <div className="ie-grid">
+              <PanelBoundary label="Statistics">
+                {statistics.loading ? (
+                  <PanelSkeleton label="Loading statistics" rows={6} />
+                ) : statistics.error || !statistics.data ? (
+                  <Panel title="Statistical Evidence">
+                    <StateMessage
+                      kind="error"
+                      title="Statistical evidence unavailable"
+                      actions={retry(statistics.retry)}
+                    >
+                      Missing values are not zero.
+                    </StateMessage>
+                  </Panel>
+                ) : (
+                  <StatisticsEvidence data={statistics.data} />
+                )}
+              </PanelBoundary>
 
-            <PanelBoundary label="Prediction">
-              {prediction.loading ? (
-                <PanelSkeleton label="Loading model prediction" />
-              ) : prediction.error || !prediction.data ? (
-                <Panel title="ML Prediction">
-                  <StateMessage
-                    title="Model prediction unavailable"
-                    actions={retry(prediction.retry)}
-                  >
-                    Model probability and held-out evidence could not be loaded.
-                    The score and other research results remain visible.
-                  </StateMessage>
-                </Panel>
-              ) : (
-                <PredictionEvidence data={prediction.data} />
-              )}
-            </PanelBoundary>
+              <PanelBoundary label="Prediction">
+                {prediction.loading ? (
+                  <PanelSkeleton label="Loading model prediction" rows={6} />
+                ) : prediction.error || !prediction.data ? (
+                  <Panel title="ML Prediction">
+                    <StateMessage
+                      title="Model prediction unavailable"
+                      actions={retry(prediction.retry)}
+                    >
+                      Model probability could not be loaded. The score and other
+                      research results remain visible.
+                    </StateMessage>
+                  </Panel>
+                ) : (
+                  <PredictionEvidence data={prediction.data} />
+                )}
+              </PanelBoundary>
+            </div>
 
+            {/* Row 4: Chart */}
             <PanelBoundary label="Price history">
               <Panel title="Historical Price & Events">
                 <div className="ie-chart-region">
@@ -237,7 +259,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                         transactions={insiders.data?.transactions || []}
                       />
                       {insiders.error && (
-                        <p className="ie-muted">
+                        <p className="ie-muted" style={{ marginTop: "12px" }}>
                           Insider markers unavailable; the price series remains
                           visible.
                         </p>
@@ -252,22 +274,25 @@ function CompanyResearch({ ticker }: { ticker: string }) {
               <SnowflakeResearch ticker={data.ticker} />
             </PanelBoundary>
 
-            <PanelBoundary label="AI explanation" key={`explain:${eventKey}`}>
-              <ExplainSignal
-                ticker={data.ticker}
-                evidenceKey={eventKey}
-                evidence={
-                  <p className="ie-muted">
-                    AI interprets the quantitative evidence above; it does not
-                    calculate the signal.
-                  </p>
-                }
-              />
-            </PanelBoundary>
+            {/* Row 5: AI Explanation & Audio Brief */}
+            <div className="ie-grid">
+              <PanelBoundary label="AI explanation" key={`explain:${eventKey}`}>
+                <ExplainSignal
+                  ticker={data.ticker}
+                  evidenceKey={eventKey}
+                  evidence={
+                    <p className="ie-muted" style={{ marginBottom: "16px" }}>
+                      AI interprets the quantitative evidence above; it does not
+                      calculate the signal.
+                    </p>
+                  }
+                />
+              </PanelBoundary>
 
-            <PanelBoundary label="Analyst brief" key={`brief:${eventKey}`}>
-              <AnalystBrief ticker={data.ticker} evidenceKey={eventKey} />
-            </PanelBoundary>
+              <PanelBoundary label="Analyst brief" key={`brief:${eventKey}`}>
+                <AnalystBrief ticker={data.ticker} evidenceKey={eventKey} />
+              </PanelBoundary>
+            </div>
           </div>
         )}
       </PageContainer>

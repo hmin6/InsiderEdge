@@ -13,7 +13,7 @@ test('ranking keeps missing scores last, preserves zero, and does not mutate API
   assert.deepEqual(rankRadar(input).map(item => item.ticker), ['HIGH', 'ZERO', 'MISSING']);
   assert.equal(input[0].insider_edge_score, null);
   assert.equal(numeric(null), 'Unavailable');
-  assert.equal(numeric(0), '0');
+  assert.equal(numeric(0), '0.00');
 });
 test('mock company recognizes normalized known ticker and simulates unknown ticker 404', () => {
   assert.equal(mockCompany('aapl').ticker, 'AAPL');
