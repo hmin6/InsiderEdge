@@ -402,7 +402,6 @@ return (
             <thead>
               <tr>
                 <th>Company</th>
-                <th>Signal Summary</th>
                 <th>Status</th>
                 <th className="ie-number">Anomaly</th>
                 <th className="ie-number">Activity</th>
@@ -416,7 +415,7 @@ return (
             <tbody>
               {data.length > 0 && !filteredData.length && (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={7}>
                     No matching research events. Clear the filter to see the
                     full queue, or search a ticker to open its research page.
                   </td>
@@ -434,7 +433,6 @@ return (
                       <span className="ie-muted">{item.company_name}</span>
                     </Link>
                   </td>
-                  <td>{item.insider_signal_summary || "—"}</td>
                   <td>
                     <SignalAvailability evidence={item} />
                   </td>
