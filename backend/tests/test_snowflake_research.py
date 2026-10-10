@@ -569,3 +569,50 @@ def test_grounded_brk_dates_never_emit_year_source_diagnostic(monkeypatch, caplo
         'Review 2026-08-14, 2026-08-13 and 2026-08-12.']}, ''), 'application/json'
     assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'available'
     assert 'rejected_token=2026' not in caplog.text and 'token_source' not in caplog.text
+
+
+@pytest.mark.parametrize('statement', [
+    'Review insider activity in 2026.', 'Review filings during 2026.',
+    'Review the 2026 filing.', 'Review the 2026 transaction.',
+    'Review 2026 insider activity.',
+    'Whether insider activity in 2026 is associated with stock price movement.',
+])
+def test_grounded_calendar_year_reference(monkeypatch, statement):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'available'
+
+
+@pytest.mark.parametrize('statement', [
+    'Review filings in 2025.', 'Review 2026 shares.', 'Review $2026.', 'Review 2026%.',
+    'The price was 2026.', 'The return was 2026.', 'The probability was 2026.',
+    'The score was 2026.', 'CAR30 was 2026.', 'IES was 2026.',
+    'Review in 2026 shares.', 'Review during 2026 percent.',
+    'Review 2026-08-15.', 'Review 2026-09-14.',
+    'Review accession 0000000001-26-000005.', 'Review 2026.',
+])
+def test_year_abstraction_remains_fail_closed(monkeypatch, statement):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+
+
+def test_grounded_year_then_real_numeric_failure_logged(monkeypatch, caplog):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        'Review filings in 2026 with PRIVATE_MARKER 98765.']}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+    assert 'rejected_token=98765 token_kind=integer token_source=standalone' in caplog.text
+    assert 'rejected_token=2026' not in caplog.text and 'PRIVATE_MARKER' not in caplog.text
+
+
+def test_year_reference_requires_complete_evidence_date(monkeypatch):
+    configure(monkeypatch)
+    evidence = {**BRK_DATE_EVIDENCE, 'event': {'research_event_id': 'synthetic'},
+                'filings': [{'filing_date': '2026-08'}]}
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': ['Review filings in 2026.']}, ''), 'application/json'
+    assert research(evidence, SnowflakeProvider()).status == 'unavailable'
