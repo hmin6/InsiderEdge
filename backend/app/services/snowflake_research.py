@@ -67,6 +67,13 @@ NUMERIC_TOKEN = re.compile(
     r'(?:[eE][+-]?\d+)?(?:\s*(?:%|percent(?:age)?|basis points?|'
     r'dollars?|USD|shares?|million|billion|thousand))?(?!\w)', re.I)
 
+# Reserve complete ISO dates before generic extraction. Currency/unit-bearing
+# strings and malformed date extensions must not acquire permission as dates.
+ISO_DATE_TOKEN = re.compile(
+    r'(?<![\w.$\u00a3\u20ac+-])\d{4}-\d{2}-\d{2}'
+    r'(?![\w/%+-]|[.:]\d)'
+    r'(?!\s*(?:%|percent(?:age)?\b|basis points?\b|dollars?\b|USD\b|shares?\b|million\b|billion\b|thousand\b))', re.I)
+
 # Detect a quantitative label directly assigning a number, not a qualitative
 # subject elsewhere in a sentence containing a filing date or accession.
 QUANTITATIVE_CLAIM = re.compile(
@@ -106,8 +113,16 @@ class NumericGroundingFailure(ValueError):
         self.token_kind = kind or numeric_token_kind(token)
 
 
+def numeric_matches(text):
+    dates = list(ISO_DATE_TOKEN.finditer(text))
+    generic = [match for match in NUMERIC_TOKEN.finditer(text)
+               if not any(match.start() < date.end() and date.start() < match.end()
+                          for date in dates)]
+    return sorted([*dates, *generic], key=lambda match: match.start())
+
+
 def numeric_tokens(text, require_complete=False):
-    matches = list(NUMERIC_TOKEN.finditer(text))
+    matches = numeric_matches(text)
     if require_complete:
         covered = {position for match in matches for position in range(*match.span())}
         for position, character in enumerate(text):
@@ -227,7 +242,7 @@ class SnowflakeProvider:
                     category = 'numeric_grounding_rejected'
                     numbers = numeric_tokens(text, require_complete=True)
                     if not numbers_grounded(numbers, grounded_numbers):
-                        first = next(match.group(0) for match in NUMERIC_TOKEN.finditer(text)
+                        first = next(match.group(0) for match in numeric_matches(text)
                                      if not numbers_grounded({match.group(0)}, grounded_numbers))
                         raise NumericGroundingFailure(first)
                     # These quantitative outputs are never supplied to this provider.

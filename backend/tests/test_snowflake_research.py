@@ -461,3 +461,61 @@ def test_available_result_has_no_rejection_log(monkeypatch, caplog):
     result = research(EVIDENCE, SnowflakeProvider())
     assert result.status == 'available' and result.context.model_dump() == CONTENT
     assert 'rejected_token' not in caplog.text
+
+
+BRK_DATE_EVIDENCE = {
+    'ticker': 'BRK.B', 'company_name': 'Synthetic Berkshire', 'sector': 'Financials',
+    'event': {'research_event_id': 'BRK.B:2026-08-14', 'public_event_day': '2026-08-14',
+              'information_date': '2026-08-13', 'aggregate_purchase_value': '250072.030'},
+    'filings': [{'transaction_date': '2026-08-12', 'filing_date': '2026-08-13',
+                 'accession_number': '0000000001-26-000004', 'document_type': '4'}],
+}
+
+
+@pytest.mark.parametrize('statement', [
+    'Review the event on 2026-08-14.',
+    'Compare dates 2026-08-14,2026-08-13,2026-08-12.',
+    'Compare the filing date 2026-08-13 with the transaction date 2026-08-12.',
+    'Whether the event on 2026-08-14 is associated with stock price movement.',
+    'The aggregate purchase value is 250,072.03 for the event on 2026-08-14.',
+])
+def test_exact_brk_dates_are_atomic_and_grounded(monkeypatch, statement, caplog):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'available'
+    assert 'numeric_grounding_rejected' not in caplog.text
+
+
+@pytest.mark.parametrize('numeric', [
+    '2026-08-15', '2025-08-14', '2026-09-14', '2026', '08', '14',
+    '2026-8-14', '2026-08', '2026-08-14-01', '0000000001-26-000005',
+    '$2026-08-14', '2026-08-14%', '2026-08-14 shares',
+])
+def test_date_components_do_not_grant_numeric_permission(monkeypatch, numeric):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [f'Review {numeric}.']}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+
+
+def test_date_token_extraction_does_not_whitelist_year():
+    from app.services.snowflake_research import numeric_tokens, numbers_grounded
+    source = json.dumps(BRK_DATE_EVIDENCE)
+    grounded = numeric_tokens(source)
+    assert {'2026-08-14', '2026-08-13', '2026-08-12'} <= grounded
+    assert not {'2026', '08', '14'} & grounded
+    assert not numbers_grounded({'2026'}, grounded)
+    assert numbers_grounded({'2026'}, numeric_tokens(json.dumps({**BRK_DATE_EVIDENCE, 'year': 2026})))
+
+
+def test_grounded_date_then_real_rejection_diagnostic(monkeypatch, caplog):
+    import logging
+    configure(monkeypatch)
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        'For 2026-08-14, review values 98765 and 99999.']}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+    assert 'rejected_token=98765 token_kind=integer' in caplog.text
+    assert 'rejected_token=2026' not in caplog.text and '99999' not in caplog.text
