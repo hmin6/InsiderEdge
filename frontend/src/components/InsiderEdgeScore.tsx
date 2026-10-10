@@ -1,4 +1,3 @@
-import { formatNumber } from "../utils/format";
 import { SignalAvailability } from "./SignalAvailability";
 import type { ScoreEvidence } from "../types/score";
 import { useScoreReveal } from "../hooks/useScoreReveal";
