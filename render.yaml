@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: insideredge-backend
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SEC_USER_AGENT
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.8-flash
+      - key: GEMINI_TIMEOUT_SECONDS
+        value: "30"
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_VOICE_ID
+        sync: false
+      - key: ELEVENLABS_MODEL
+        value: eleven_multilingual_v2
+      - key: ELEVENLABS_TIMEOUT_SECONDS
+        value: "30"

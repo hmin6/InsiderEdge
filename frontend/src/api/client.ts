@@ -3,7 +3,7 @@ import { DEV_MOCK_RADAR, DEV_MOCK_COMPANY, DEV_MOCK_PRICES, DEV_MOCK_INSIDERS } 
 import { ApiError, getJson } from './http';
 import type { StatisticsResponse, PredictionResponse } from '../types/research';
 
-const BASE_URL = import.meta.env?.VITE_API_BASE_URL || "http://localhost:8000";
+import { API_BASE_URL } from './base';
 
 // 1. Preserve development mocks only behind an explicit development/demo mechanism
 export const usingResearchMocks = Boolean(import.meta.env?.DEV && import.meta.env?.VITE_USE_MOCKS !== 'false');
@@ -15,7 +15,7 @@ export function mockCompany(ticker: string): CompanyResponse {
 }
 
 // Safely format the base URL to prevent duplicate slashes
-const safeBaseUrl = BASE_URL.replace(/\/$/, '');
+const safeBaseUrl = API_BASE_URL;
 const companyUrl = (ticker: string) => `${safeBaseUrl}/api/companies/${encodeURIComponent(ticker.toUpperCase())}`;
 
 export const fetchRadar = async (signal?: AbortSignal): Promise<RadarResponse> => {
