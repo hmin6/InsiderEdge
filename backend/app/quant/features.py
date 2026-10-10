@@ -128,7 +128,7 @@ def _price_features(
         if etf:
             stock_dates = history.tail(91)["date"]
             benchmark_rows = price_index.get(etf)
-            aligned = (benchmark_rows.set_index("date")["analysis_price"].reindex(stock_dates).to_numpy()
+            aligned = (benchmark_rows.set_index("date")["analysis_price"].reindex(stock_dates).to_numpy(dtype=float)
                        if benchmark_rows is not None else np.array([]))
             if len(aligned) == 91 and np.all(np.isfinite(aligned)):
                 benchmark_prices = aligned.astype(float)
@@ -151,7 +151,7 @@ def _price_features(
         stock_dates = stock_window["date"]
         for benchmark, feature in (("SPY", "spy_relative_return_30d"), (etf, "sector_relative_return_30d")):
             benchmark_rows = price_index.get(benchmark.upper())
-            aligned = (benchmark_rows.set_index("date")["analysis_price"].reindex(stock_dates).to_numpy()
+            aligned = (benchmark_rows.set_index("date")["analysis_price"].reindex(stock_dates).to_numpy(dtype=float)
                        if benchmark_rows is not None else np.array([]))
             if len(aligned) == 31 and np.all(np.isfinite(aligned)):
                 benchmark_prices = aligned.astype(float)

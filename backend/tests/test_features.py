@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from decimal import Decimal
 
 import numpy as np
 import pandas as pd
@@ -65,6 +66,57 @@ def prices_frame(count: int = 121) -> pd.DataFrame:
 
 
 class EventFeatureTests(unittest.TestCase):
+    def test_decimal_and_mixed_prices_match_float_features(self):
+        expected = self.features()
+        for mixed in (False, True):
+            with self.subTest(mixed=mixed):
+                prices = prices_frame()
+                prices['analysis_price'] = [
+                    value if mixed and i % 2 else Decimal(str(value))
+                    for i, value in enumerate(prices.analysis_price)
+                ]
+                pd.testing.assert_frame_equal(self.features(market_frame=prices), expected)
+
+    def test_decimal_zero_is_preserved_and_zero_denominator_is_unavailable(self):
+        prices = prices_frame()
+        prices['analysis_price'] = prices.analysis_price.map(lambda value: Decimal(str(value)))
+        dates = pd.to_datetime(prices.date)
+        last = dates[dates.lt('2024-03-29')].max()
+        prices.loc[dates.eq(last), 'analysis_price'] = Decimal('0')
+        row = self.features(market_frame=prices).iloc[0]
+        self.assertEqual(row.prior_return_30d, -1.0)
+        self.assertEqual(row.sector_return_90d, -1.0)
+        self.assertEqual(row.spy_relative_return_30d, 0.0)
+        self.assertEqual(row.sector_relative_return_30d, 0.0)
+        prices.loc[prices.ticker.eq('SPY'), 'analysis_price'] = Decimal('0')
+        self.assertTrue(pd.isna(self.features(market_frame=prices).iloc[0].spy_relative_return_30d))
+
+    def test_decimal_missing_and_nonfinite_prices_keep_existing_filtering(self):
+        for invalid in (None, Decimal('NaN'), Decimal('Infinity'), Decimal('-Infinity')):
+            with self.subTest(invalid=invalid):
+                prices = prices_frame()
+                dates = pd.to_datetime(prices.date)
+                missing_date = dates[dates.lt('2024-03-29')].max()
+                mask = prices.ticker.isin(['SPY', 'XLK']) & dates.eq(missing_date)
+                expected = self.features(market_frame=prices.loc[~mask])
+                prices['analysis_price'] = prices.analysis_price.map(lambda value: Decimal(str(value)))
+                prices.loc[mask, 'analysis_price'] = invalid
+                actual = self.features(market_frame=prices)
+                pd.testing.assert_frame_equal(actual, expected)
+                for field in ('sector_return_90d', 'spy_relative_return_30d', 'sector_relative_return_30d'):
+                    self.assertTrue(pd.isna(actual.iloc[0][field]))
+
+    def test_decimal_prices_on_and_after_boundary_do_not_change_features(self):
+        prices = prices_frame()
+        prices['analysis_price'] = prices.analysis_price.map(lambda value: Decimal(str(value)))
+        expected = self.features(market_frame=prices)
+        future = prices.iloc[:3].copy()
+        future['date'] = '2024-04-02'
+        future['analysis_price'] = Decimal('999999999')
+        pd.testing.assert_frame_equal(
+            self.features(market_frame=pd.concat([prices, future], ignore_index=True)), expected)
+        self.assertAlmostEqual(expected.iloc[0].sector_return_90d, 90 / 81)
+
     def features(self, event_frame=None, tx_frame=None, market_frame=None, buyer_evidence=None):
         return build_event_features(
             event_frame if event_frame is not None else events_frame(),
