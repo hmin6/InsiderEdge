@@ -1,3 +1,5 @@
+export type AvailabilityStatus = "not_scored" | "complete" | "partial" | "insufficient_data";
+
 export type RadarItem = {
   ticker: string;
   company_name: string;
@@ -12,6 +14,7 @@ export type RadarItem = {
   ml_outperformance_probability: number | null;
   score_status: "complete" | "partial" | "insufficient_data";
   unavailable_components: string[];
+  availability_status?: AvailabilityStatus | null;
 };
 
 export type RadarResponse = {

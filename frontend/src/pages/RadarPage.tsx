@@ -1,14 +1,13 @@
+import { SignalAvailability } from "../components/SignalAvailability";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import type { RadarItem } from '../types/api';
 import { fetchRadar, usingResearchMocks } from "../api/client";
 import { useResource } from '../hooks/useResource';
-import { rankRadar, numeric } from '../components/ResearchStates';
+import { rankRadar, numeric, type RadarSortKey } from '../components/ResearchStates';
 import {
   AppShell,
   PageContainer,
   ProductHeader,
-  ScoreStatusBadge,
   PanelSkeleton,
   StateMessage,
 } from "../components";
@@ -290,6 +289,11 @@ return (
                   </div>
                 )}
               </div>
+              {sortKey !== 'default' && <button className="ie-button" type="button"
+                aria-label={`Sort direction: ${direction === 'asc' ? 'ascending' : 'descending'}`}
+                onClick={() => setDirection(value => value === 'asc' ? 'desc' : 'asc')}>
+                {direction === 'asc' ? 'Ascending' : 'Descending'}
+              </button>}
             </div>
             {query.trim() && (
               <span
@@ -368,22 +372,22 @@ return (
                   </td>
                   <td>{item.insider_signal_summary || "—"}</td>
                   <td>
-                    <ScoreStatusBadge status={item.score_status} />
+                    <SignalAvailability evidence={item} />
                   </td>
                   <td className="ie-number">
-                    {radarScore(item.anomaly_score)}
+                    {numeric(item.anomaly_score)}
                   </td>
                   <td className="ie-number">
-                    {radarScore(item.activity_score)}
+                    {numeric(item.activity_score)}
                   </td>
                   <td className="ie-number">
-                    {radarScore(item.dislocation_score)}
+                    {numeric(item.dislocation_score)}
                   </td>
                   <td className="ie-number">
                     {numeric(item.ml_outperformance_probability, true)}
                   </td>
                   <td className="ie-number ie-priority-column">
-                    <strong>{radarScore(item.insider_edge_score)}</strong>
+                    <strong>{numeric(item.insider_edge_score)}</strong>
                   </td>
                 </tr>
               ))}

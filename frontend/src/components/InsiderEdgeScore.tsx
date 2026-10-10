@@ -1,3 +1,5 @@
+import { formatNumber } from "../utils/format";
+import { SignalAvailability } from "./SignalAvailability";
 import type { ScoreEvidence } from "../types/score";
 import { useScoreReveal } from "../hooks/useScoreReveal";
 import { Panel, ScoreStatusBadge } from "./ui";
@@ -52,7 +54,7 @@ export function InsiderEdgeScore({ evidence }: { evidence: ScoreEvidence }) {
   return (
     <Panel
       title="InsiderEdge Score"
-      actions={<ScoreStatusBadge status={evidence.score_status} />}
+      actions={<ScoreStatusBadge status={evidence.score_status} availability={evidence.availability_status} />}
     >
       <div ref={ref} className="ie-score">
         <div className="ie-score-headline">
@@ -75,14 +77,12 @@ export function InsiderEdgeScore({ evidence }: { evidence: ScoreEvidence }) {
               <span className="ie-sr-only">
                 {score === null
                   ? "Score unavailable"
-                  : `${score.toFixed(1)} out of 100`}
+                  : `${formatNumber(score)} out of 100`}
               </span>
               <strong aria-hidden="true">
                 {score === null
                   ? "—"
-                  : progress === 1
-                    ? score.toFixed(1)
-                    : Math.floor(score * progress)}
+                  : formatNumber(score * progress)}
               </strong>
               <span aria-hidden="true">
                 {score === null ? "Unavailable" : "/ 100"}
@@ -104,7 +104,7 @@ export function InsiderEdgeScore({ evidence }: { evidence: ScoreEvidence }) {
                   <span className="ie-muted">Unavailable</span>
                 ) : (
                   <>
-                    <strong>{component.value.toFixed(1)}</strong>{" "}
+                    <strong>{formatNumber(component.value)}</strong>{" "}
                     <span className="ie-muted">{component.unit}</span>
                   </>
                 )}
@@ -123,13 +123,14 @@ export function InsiderEdgeScore({ evidence }: { evidence: ScoreEvidence }) {
         </dl>
       </div>
       <div className="ie-score-note">
-        {evidence.score_status === "partial" && (
+        <SignalAvailability evidence={evidence} showBadge={false} />
+        {!evidence.availability_status && evidence.score_status === "partial" && (
           <p>
             Partial score · Some evidence is unavailable. The displayed score is
             supplied by the backend.
           </p>
         )}
-        {evidence.score_status === "insufficient_data" && (
+        {!evidence.availability_status && evidence.score_status === "insufficient_data" && (
           <p>
             Insufficient data · Evidence needed for the overall
             research-priority score is unavailable.

@@ -27,9 +27,9 @@ test('recent CAR horizons stay unavailable while realized zero CAR5 remains visi
   const data: StatisticsResponse = { ...DEV_MOCK_STATISTICS, ticker: 'AAPL', research_event_id: 'test', public_event_day: '2026-10-09', anomaly: { ...DEV_MOCK_STATISTICS.anomaly, score: null, status: 'insufficient_data' }, activity: { ...DEV_MOCK_STATISTICS.activity, score: 0, status: 'complete' }, event_study: { car5: 0, car30: null, car90: null, status: 'partial' }, statistical_validation: { comparable_event_count: null, cohort_definition: null, mean_car30: null, bootstrap_ci_95: null, randomization_p_value: null, statistical_score: null, status: 'insufficient_data' } };
   const html = renderToStaticMarkup(<StatisticsEvidence data={data} />);
   assert.match(html, /Insufficient anomaly history/);
-  assert.match(html, /CAR5<\/dt><dd>0.00%/);
-  assert.match(html, /CAR30<\/dt><dd>Unavailable/);
-  assert.match(html, /CAR90<\/dt><dd>Unavailable/);
+  assert.match(html, /CAR5<\/div><div class="ie-metric-value">0.00%/);
+  assert.match(html, /CAR30<\/div><div class="ie-metric-value">Unavailable/);
+  assert.match(html, /CAR90<\/div><div class="ie-metric-value">Unavailable/);
   assert.match(html, /Future CAR is not yet known/);
 });
 test('missing model probability has an explicit state', () => {
@@ -61,9 +61,9 @@ test('partial bootstrap evidence stays visible when randomization and combined s
     statistical_score: null, status: 'partial',
   } };
   const html = renderToStaticMarkup(<StatisticsEvidence data={data} />);
-  assert.match(html, /Mean CAR30: 0.00%/);
+  assert.match(html, /Mean CAR30<\/div><div class="ie-metric-value">0.00%/);
   assert.match(html, /-2.00% to 3.00%/);
-  assert.match(html, /Randomization p-value: Unavailable/);
+  assert.match(html, /P-Value<\/div><div class="ie-metric-value">Unavailable/);
   assert.match(html, /Combined statistical score unavailable/);
   assert.doesNotMatch(html, /Comparable-event evidence is unavailable/);
 });
@@ -93,7 +93,7 @@ test('prediction shows only supplied threshold and frozen held-out metrics, pres
 
 test('existing unscored event is distinct from absent research events', () => {
   const unscored = renderToStaticMarkup(<CompanyScore data={{ ...DEV_MOCK_COMPANY, latest_signal: null }} />);
-  assert.match(unscored, /Research-priority score unavailable/);
+  assert.match(unscored, /Not scored/);
   assert.match(unscored, /A research event is available for 2026-10-08/);
   assert.doesNotMatch(unscored, /No research events|No recent insider events/);
   const absent = renderToStaticMarkup(<CompanyScore data={{ ...DEV_MOCK_COMPANY, latest_signal: null, latest_public_event_day: null }} />);

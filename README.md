@@ -218,6 +218,8 @@ git diff --check
 
 Normal automated tests use synthetic data/mocked providers; they do not require paid live Gemini or ElevenLabs calls. Live provider checks are separate, deliberate operations.
 
+Optional [Snowflake Research Context](backend/SNOWFLAKE_RESEARCH.md) uses Cortex REST inference on supplied company/event evidence. It has no influence on quantitative scores or predictions and fails independently of core research.
+
 ## Production
 
 - **Primary frontend:** [insideredge.work](https://insideredge.work), hosted on Vercel with root `frontend`, Vite build and SPA fallback. `www.insideredge.work` redirects to the apex with HTTP 308.
