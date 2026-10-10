@@ -284,3 +284,335 @@ def test_numeric_quantitative_assignments_are_rejected(monkeypatch, statement):
     ai_providers.post.side_effect = None
     ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
     assert research(evidence, SnowflakeProvider()).status == 'unavailable'
+
+
+@pytest.mark.parametrize('case,expected', [
+    ('configuration', 'configuration_missing'), ('no_event', 'research_event_missing'),
+    ('malformed', 'provider_response_invalid'), ('finish', 'finish_reason_rejected'),
+    ('schema', 'schema_validation_failed'), ('safety', 'safety_language_rejected'),
+    ('numeric', 'numeric_grounding_rejected'), ('unexpected', 'unexpected_error'),
+])
+def test_safe_unavailable_diagnostics(monkeypatch, caplog, case, expected):
+    import logging
+    from copy import deepcopy
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    evidence = deepcopy(EVIDENCE)
+    evidence['company_name'] = 'PRIVATE_EVIDENCE_MARKER'
+    if case != 'configuration':
+        configure(monkeypatch)
+    if case == 'no_event':
+        evidence['event'] = None
+    ai_providers.post.side_effect = None
+    content = {**CONTENT}
+    if case == 'schema':
+        content = {'event_context': ['RAW_PROVIDER_MARKER']}
+    elif case == 'safety':
+        content = {**CONTENT, 'event_context': ['Buy RAW_PROVIDER_MARKER.']}
+    elif case == 'numeric':
+        content = {**CONTENT, 'event_context': ['RAW_PROVIDER_MARKER 99999']}
+    response = body(content, finish_reason='length' if case == 'finish' else '')
+    if case == 'malformed':
+        response = b'RAW_PROVIDER_MARKER not JSON synthetic-test-token'
+    ai_providers.post.return_value = response, 'application/json'
+    provider = SnowflakeProvider()
+    if case == 'unexpected':
+        provider = Mock()
+        provider.generate.side_effect = ValueError('RAW_PROVIDER_MARKER synthetic-test-token')
+    result = research(evidence, provider)
+    assert result.status == 'unavailable' and result.context is None and result.model is None
+    assert set(result.model_dump()) == {'ticker', 'research_event_id', 'provider', 'model',
+                                       'status', 'context', 'provenance', 'limitations'}
+    records = [r for r in caplog.records if r.name == 'app.services.snowflake_research']
+    assert len(records) == 1
+    message = records[0].getMessage()
+    assert 'ticker=AAPL' in message and f'reason={expected}' in message
+    assert ('research_event_id=None' if case == 'no_event' else
+            'research_event_id=AAPL:2026-03-16') in message
+    assert records[0].exc_info is None
+    for forbidden in ('synthetic-test-token', 'Authorization', 'RAW_PROVIDER_MARKER',
+                      'PRIVATE_EVIDENCE_MARKER', 'event_context', 'Use only supplied evidence'):
+        assert forbidden not in caplog.text
+    assert expected not in result.model_dump_json()
+
+
+@pytest.mark.parametrize('failure,expected', [
+    (TimeoutError('RAW_PROVIDER_MARKER'), 'provider_timeout'),
+    (ValueError('RAW_PROVIDER_MARKER'), 'provider_response_invalid'),
+])
+def test_transport_diagnostic_categories(monkeypatch, caplog, failure, expected):
+    import logging
+    configure(monkeypatch)
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    monkeypatch.setattr(ai_providers, 'post', REAL_POST)
+    monkeypatch.setattr(ai_providers, 'build_opener', Mock(side_effect=failure))
+    assert research(EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+    assert f'reason={expected}' in caplog.text
+    assert 'RAW_PROVIDER_MARKER' not in caplog.text
+
+
+def test_http_error_diagnostic_is_safe(monkeypatch, caplog):
+    import logging
+    from urllib.error import HTTPError
+    configure(monkeypatch)
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    monkeypatch.setattr(ai_providers, 'post', REAL_POST)
+    error = HTTPError('https://private.test', 403, 'RAW_PROVIDER_MARKER',
+                      {'Authorization': 'synthetic-test-token'}, None)
+    monkeypatch.setattr(ai_providers, 'build_opener', Mock(side_effect=error))
+    assert research(EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+    assert 'reason=provider_http_error' in caplog.text
+    for forbidden in ('private.test', 'RAW_PROVIDER_MARKER', 'Authorization', 'synthetic-test-token'):
+        assert forbidden not in caplog.text
+
+
+@pytest.mark.parametrize('value', ['250072.030', '250072.03', '250,072.03', '250,072.0300'])
+def test_equivalent_grounded_decimal_formatting(monkeypatch, value):
+    configure(monkeypatch)
+    evidence = {**EVIDENCE, 'event': {**EVIDENCE['event'], 'aggregate_purchase_value': '250072.030'}}
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        f'The recorded aggregate purchase value is {value}.']}, ''), 'application/json'
+    assert research(evidence, SnowflakeProvider()).status == 'available'
+
+
+@pytest.mark.parametrize('statement', [
+    'The value is 250072.04.', 'The value is 250073.', 'The value is 25,0072.03.',
+    'The value is 0250072.03.', 'The value is 250072.03%.',
+    'The price was 250072.03.', 'The return was 250072.03.',
+    'The probability was 250072.03.', 'The score was 250072.03.',
+    'CAR30 was 250072.03.', 'IES was 250072.03.',
+    'The quantity was 250072.03 shares.', 'The date is 2026-03-17.',
+    'The accession is 0000000001-26-000005.',
+])
+def test_decimal_normalization_remains_fail_closed(monkeypatch, statement):
+    configure(monkeypatch)
+    evidence = {**EVIDENCE, 'event': {**EVIDENCE['event'], 'aggregate_purchase_value': '250072.030'},
+                'filings': [{'filing_date': '2026-03-16',
+                             'accession_number': '0000000001-26-000004', 'document_type': '4'}]}
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
+    assert research(evidence, SnowflakeProvider()).status == 'unavailable'
+
+
+def test_decimal_normalization_does_not_normalize_identifiers():
+    from app.services.snowflake_research import numbers_grounded
+    assert not numbers_grounded({'4.0'}, {'4'})
+    assert not numbers_grounded({'2026-3-16'}, {'2026-03-16'})
+    assert not numbers_grounded({'1-26-4'}, {'0000000001-26-000004'})
+    assert numbers_grounded({'250072'}, {'250072.000'})
+
+
+@pytest.mark.parametrize('numeric,kind', [
+    ('98765', 'integer'), ('98765.43', 'decimal'), ('98,765.43', 'grouped_decimal'),
+    ('$98765', 'currency'), ('98765%', 'percentage'), ('2027-01-02', 'date_like'),
+    ('0000000001-26-999999', 'identifier_like'), ('98765 shares', 'other_numeric'), ('1e99', 'other_numeric'),
+])
+def test_rejected_numeric_token_logged_without_surrounding_text(monkeypatch, caplog, numeric, kind):
+    import logging
+    configure(monkeypatch)
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    evidence = {**EVIDENCE, 'company_name': 'PRIVATE_EVIDENCE_MARKER'}
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        f'RAW_PROVIDER_BEFORE {numeric} RAW_PROVIDER_AFTER 99998.']}, ''), 'application/json'
+    result = research(evidence, SnowflakeProvider())
+    assert result.status == 'unavailable' and result.context is None
+    assert f'rejected_token={numeric} token_kind={kind}' in caplog.text
+    assert 'reason=numeric_grounding_rejected' in caplog.text
+    assert 'ticker=AAPL research_event_id=AAPL:2026-03-16' in caplog.text
+    assert '99998' not in caplog.text
+    for forbidden in ('RAW_PROVIDER_BEFORE', 'RAW_PROVIDER_AFTER', 'synthetic-test-token',
+                      'Authorization', 'PRIVATE_EVIDENCE_MARKER', 'event_context', 'Use only supplied evidence'):
+        assert forbidden not in caplog.text
+    assert all(record.exc_info is None for record in caplog.records)
+    assert 'rejected_token' not in result.model_dump_json()
+    assert 'token_kind' not in result.model_dump_json()
+
+
+def test_rejected_token_length_is_bounded(monkeypatch, caplog):
+    import logging
+    from app.services.snowflake_research import TOKEN_LOG_LIMIT
+    configure(monkeypatch)
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    ai_providers.post.side_effect = None
+    numeric = '9' * 200
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [numeric]}, ''), 'application/json'
+    assert research(EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+    record = next(r for r in caplog.records if r.name == 'app.services.snowflake_research')
+    assert len(record.args[3]) == TOKEN_LOG_LIMIT
+    assert numeric not in caplog.text
+
+
+def test_unrecognized_numeric_format_logs_only_digits(monkeypatch, caplog):
+    import logging
+    configure(monkeypatch)
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': ['PRIVATE99suffix']}, ''), 'application/json'
+    assert research(EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+    assert 'rejected_token=99 token_kind=other_numeric' in caplog.text
+    assert 'PRIVATE' not in caplog.text and 'suffix' not in caplog.text
+
+
+def test_available_result_has_no_rejection_log(monkeypatch, caplog):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body(), 'application/json'
+    result = research(EVIDENCE, SnowflakeProvider())
+    assert result.status == 'available' and result.context.model_dump() == CONTENT
+    assert 'rejected_token' not in caplog.text
+
+
+BRK_DATE_EVIDENCE = {
+    'ticker': 'BRK.B', 'company_name': 'Synthetic Berkshire', 'sector': 'Financials',
+    'event': {'research_event_id': 'BRK.B:2026-08-14', 'public_event_day': '2026-08-14',
+              'information_date': '2026-08-13', 'aggregate_purchase_value': '250072.030'},
+    'filings': [{'transaction_date': '2026-08-12', 'filing_date': '2026-08-13',
+                 'accession_number': '0000000001-26-000004', 'document_type': '4'}],
+}
+
+
+@pytest.mark.parametrize('statement', [
+    'Review the event on 2026-08-14.',
+    'Compare dates 2026-08-14,2026-08-13,2026-08-12.',
+    'Compare the filing date 2026-08-13 with the transaction date 2026-08-12.',
+    'Whether the event on 2026-08-14 is associated with stock price movement.',
+    'The aggregate purchase value is 250,072.03 for the event on 2026-08-14.',
+])
+def test_exact_brk_dates_are_atomic_and_grounded(monkeypatch, statement, caplog):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'available'
+    assert 'numeric_grounding_rejected' not in caplog.text
+
+
+@pytest.mark.parametrize('numeric', [
+    '2026-08-15', '2025-08-14', '2026-09-14', '2026', '08', '14',
+    '2026-8-14', '2026-08', '2026-08-14-01', '0000000001-26-000005',
+    '$2026-08-14', '2026-08-14%', '2026-08-14 shares',
+])
+def test_date_components_do_not_grant_numeric_permission(monkeypatch, numeric):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [f'Review {numeric}.']}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+
+
+def test_date_token_extraction_does_not_whitelist_year():
+    from app.services.snowflake_research import numeric_tokens, numbers_grounded
+    source = json.dumps(BRK_DATE_EVIDENCE)
+    grounded = numeric_tokens(source)
+    assert {'2026-08-14', '2026-08-13', '2026-08-12'} <= grounded
+    assert not {'2026', '08', '14'} & grounded
+    assert not numbers_grounded({'2026'}, grounded)
+    assert numbers_grounded({'2026'}, numeric_tokens(json.dumps({**BRK_DATE_EVIDENCE, 'year': 2026})))
+
+
+def test_grounded_date_then_real_rejection_diagnostic(monkeypatch, caplog):
+    import logging
+    configure(monkeypatch)
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        'For 2026-08-14, review values 98765 and 99999.']}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+    assert 'rejected_token=98765 token_kind=integer' in caplog.text
+    assert 'rejected_token=2026' not in caplog.text and '99999' not in caplog.text
+
+
+
+def test_date_component_source_uses_validator_match_spans():
+    from app.services.snowflake_research import numeric_matches, numeric_source, numeric_tokens
+    text = 'PRIVATE_PREFIX 2026-08-14 PRIVATE_SUFFIX 2026'
+    matches = numeric_matches(text)
+    date = matches[0]
+    assert date.group(0) == '2026-08-14'
+    assert numeric_source(matches, date.start(), date.start() + 4) == ('date_component', '2026-08-14')
+    year = matches[1]
+    assert numeric_source(matches, year.start(), year.end()) == ('standalone', None)
+    assert numeric_tokens('2026-08-14', require_complete=True) == {'2026-08-14'}
+
+
+@pytest.mark.parametrize('numeric,source,date', [
+    ('2026', 'standalone', None),
+    ('2026-08-15', 'date_component', '2026-08-15'),
+    ('2025-08-14', 'date_component', '2025-08-14'),
+])
+def test_numeric_source_logging_is_safe_and_response_unchanged(monkeypatch, caplog, numeric, source, date):
+    import logging
+    configure(monkeypatch)
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        f'PRIVATE_PREFIX {numeric} PRIVATE_SUFFIX']}, ''), 'application/json'
+    result = research(BRK_DATE_EVIDENCE, SnowflakeProvider())
+    assert result.status == 'unavailable' and result.context is None and result.model is None
+    assert f'rejected_token={numeric}' in caplog.text
+    assert f'token_source={source}' in caplog.text
+    if date:
+        assert f'containing_date={date}' in caplog.text and len(date) == 10
+    else:
+        assert 'containing_date=' not in caplog.text
+    for forbidden in ('PRIVATE_PREFIX', 'PRIVATE_SUFFIX', 'synthetic-test-token', 'Authorization',
+                      'Use only supplied evidence', 'event_context'):
+        assert forbidden not in caplog.text
+    assert all(r.exc_info is None for r in caplog.records)
+    assert 'token_source' not in result.model_dump_json()
+    assert 'containing_date' not in result.model_dump_json()
+
+
+def test_grounded_brk_dates_never_emit_year_source_diagnostic(monkeypatch, caplog):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        'Review 2026-08-14, 2026-08-13 and 2026-08-12.']}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'available'
+    assert 'rejected_token=2026' not in caplog.text and 'token_source' not in caplog.text
+
+
+@pytest.mark.parametrize('statement', [
+    'Review insider activity in 2026.', 'Review filings during 2026.',
+    'Review the 2026 filing.', 'Review the 2026 transaction.',
+    'Review 2026 insider activity.',
+    'Whether insider activity in 2026 is associated with stock price movement.',
+])
+def test_grounded_calendar_year_reference(monkeypatch, statement):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'available'
+
+
+@pytest.mark.parametrize('statement', [
+    'Review filings in 2025.', 'Review 2026 shares.', 'Review $2026.', 'Review 2026%.',
+    'The price was 2026.', 'The return was 2026.', 'The probability was 2026.',
+    'The score was 2026.', 'CAR30 was 2026.', 'IES was 2026.',
+    'Review in 2026 shares.', 'Review during 2026 percent.',
+    'Review 2026-08-15.', 'Review 2026-09-14.',
+    'Review accession 0000000001-26-000005.', 'Review 2026.',
+])
+def test_year_abstraction_remains_fail_closed(monkeypatch, statement):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+
+
+def test_grounded_year_then_real_numeric_failure_logged(monkeypatch, caplog):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        'Review filings in 2026 with PRIVATE_MARKER 98765.']}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+    assert 'rejected_token=98765 token_kind=integer token_source=standalone' in caplog.text
+    assert 'rejected_token=2026' not in caplog.text and 'PRIVATE_MARKER' not in caplog.text
+
+
+def test_year_reference_requires_complete_evidence_date(monkeypatch):
+    configure(monkeypatch)
+    evidence = {**BRK_DATE_EVIDENCE, 'event': {'research_event_id': 'synthetic'},
+                'filings': [{'filing_date': '2026-08'}]}
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': ['Review filings in 2026.']}, ''), 'application/json'
+    assert research(evidence, SnowflakeProvider()).status == 'unavailable'

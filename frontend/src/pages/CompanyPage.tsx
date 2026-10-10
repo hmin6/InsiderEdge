@@ -9,7 +9,6 @@ import {
   fetchPrediction,
   usingResearchMocks,
 } from "../api/client";
-import { ApiError } from "../api/http";
 import { useResource } from "../hooks/useResource";
 import {
   AppShell,
@@ -110,125 +109,99 @@ function CompanyResearch({ ticker }: { ticker: string }) {
 
         {company.loading ? (
           <div className="ie-stack">
-            <PanelSkeleton label="Loading company score" rows={4} />
-            <div className="ie-grid">
-              <PanelSkeleton label="Loading insider activity" rows={2} />
-              <PanelSkeleton label="Loading market context" rows={2} />
-            </div>
-            <div className="ie-grid">
-              <PanelSkeleton label="Loading statistics" rows={6} />
-              <PanelSkeleton label="Loading predictions" rows={6} />
-            </div>
-            <PanelSkeleton label="Loading price history" rows={8} />
+            <PanelSkeleton label="Loading workspace" rows={8} />
           </div>
         ) : company.error || !data ? (
-          <div className="ie-reserved-panel">
-            <StateMessage
-              kind="error"
-              title={
-                company.error instanceof ApiError &&
-                company.error.status === 404
-                  ? "Unknown ticker"
-                  : "Unable to load company data"
-              }
-              actions={retry(company.retry)}
-            >
-              Research data for this company could not be loaded. Return to
-              Radar or retry.
-            </StateMessage>
-          </div>
+          <StateMessage
+            kind="error"
+            title="Unable to load company data"
+            actions={retry(company.retry)}
+          >
+            Return to Radar or retry.
+          </StateMessage>
         ) : (
           <div className="ie-stack">
+            {/* Score Component */}
             <PanelBoundary label="Score">
               {data.latest_signal ? (
                 <InsiderEdgeScore evidence={data.latest_signal} />
               ) : (
                 <Panel title="InsiderEdge Score">
-                  <StateMessage title="No recent insider events">
-                    No recent qualifying insider event is available. No score
-                    has been invented.
+                  <StateMessage title="No recent events">
+                    No score has been invented.
                   </StateMessage>
                 </Panel>
               )}
             </PanelBoundary>
 
-            {/* Row 2: Insider Activity & Market Context */}
-            <div className="ie-grid">
-              <Panel title="Recent Insider Activity">
-                {insiders.loading ? (
-                  <PanelSkeleton label="Loading insider history" rows={2} />
-                ) : insiders.error ? (
-                  <StateMessage
-                    kind="error"
-                    title="Insider history unavailable"
-                    actions={retry(insiders.retry)}
-                  >
-                    Other company results remain usable.
-                  </StateMessage>
-                ) : !insiders.data?.research_events.length ? (
-                  <StateMessage title="No recent insider events">
-                    No qualifying research events are available in this history.
-                  </StateMessage>
-                ) : (
-                  <p style={{ fontSize: "15px", lineHeight: "1.6" }}>
-                    {data.latest_signal?.insider_signal_summary ||
-                      "Insider events are available in the historical record."}
-                  </p>
-                )}
-              </Panel>
+            {/* Top Grid: Stacks Insider/Stats on Left, Market/Prediction on Right. alignItems: start prevents stretching! */}
+            <div className="ie-grid" style={{ alignItems: "start" }}>
+              <div className="ie-stack">
+                <Panel title="Recent Insider Activity">
+                  {insiders.loading ? (
+                    <PanelSkeleton label="Loading insider history" rows={2} />
+                  ) : !insiders.data?.research_events.length ? (
+                    <StateMessage title="No recent insider events">
+                      No qualifying research events are available in this
+                      history.
+                    </StateMessage>
+                  ) : (
+                    <p style={{ fontSize: "15px", lineHeight: "1.6" }}>
+                      {data.latest_signal?.insider_signal_summary ||
+                        "Insider events are available in the historical record."}
+                    </p>
+                  )}
+                </Panel>
 
-              <Panel title="Market Context">
-                <div className="ie-metric-grid" style={{ marginTop: 0 }}>
-                  <div className="ie-metric-card">
-                    <div className="ie-metric-label">Dislocation Score</div>
-                    <div className="ie-metric-value">
-                      {numeric(data.latest_signal?.dislocation_score)}
+                <PanelBoundary label="Statistics">
+                  {statistics.loading ? (
+                    <PanelSkeleton label="Loading statistics" rows={4} />
+                  ) : statistics.error || !statistics.data ? (
+                    <Panel title="Statistical Evidence">
+                      <StateMessage
+                        kind="error"
+                        title="Statistical evidence unavailable"
+                      >
+                        Missing values are not zero.
+                      </StateMessage>
+                    </Panel>
+                  ) : (
+                    <StatisticsEvidence data={statistics.data} />
+                  )}
+                </PanelBoundary>
+              </div>
+
+              <div className="ie-stack">
+                <Panel title="Market Context">
+                  <div className="ie-metric-grid" style={{ marginTop: 0 }}>
+                    <div
+                      className="ie-metric-card"
+                      title={`Raw value: ${data.latest_signal?.dislocation_score}`}
+                    >
+                      <div className="ie-metric-label">Dislocation Score</div>
+                      <div className="ie-metric-value">
+                        {numeric(data.latest_signal?.dislocation_score)}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Panel>
+                </Panel>
+                <PanelBoundary label="Prediction">
+                  {prediction.loading ? (
+                    <PanelSkeleton label="Loading model prediction" rows={2} />
+                  ) : prediction.error || !prediction.data ? (
+                    <Panel title="ML Prediction">
+                      <StateMessage title="Model prediction unavailable">
+                        Model probability could not be loaded.
+                      </StateMessage>
+                    </Panel>
+                  ) : (
+                    <PredictionEvidence data={prediction.data} />
+                  )}
+                </PanelBoundary>
+              </div>
             </div>
 
-            {/* Row 3: Statistics & Prediction */}
-            <div className="ie-grid">
-              <PanelBoundary label="Statistics">
-                {statistics.loading ? (
-                  <PanelSkeleton label="Loading statistics" rows={6} />
-                ) : statistics.error || !statistics.data ? (
-                  <Panel title="Statistical Evidence">
-                    <StateMessage
-                      kind="error"
-                      title="Statistical evidence unavailable"
-                      actions={retry(statistics.retry)}
-                    >
-                      Missing values are not zero.
-                    </StateMessage>
-                  </Panel>
-                ) : (
-                  <StatisticsEvidence data={statistics.data} />
-                )}
-              </PanelBoundary>
-
-              <PanelBoundary label="Prediction">
-                {prediction.loading ? (
-                  <PanelSkeleton label="Loading model prediction" rows={6} />
-                ) : prediction.error || !prediction.data ? (
-                  <Panel title="ML Prediction">
-                    <StateMessage
-                      title="Model prediction unavailable"
-                      actions={retry(prediction.retry)}
-                    >
-                      Model probability could not be loaded. The score and other
-                      research results remain visible.
-                    </StateMessage>
-                  </Panel>
-                ) : (
-                  <PredictionEvidence data={prediction.data} />
-                )}
-              </PanelBoundary>
-            </div>
-
-            {/* Row 4: Chart */}
+            {/* Price Chart */}
             <PanelBoundary label="Price history">
               <Panel title="Historical Price & Events">
                 <div className="ie-chart-region">
@@ -274,8 +247,8 @@ function CompanyResearch({ ticker }: { ticker: string }) {
               <SnowflakeResearch ticker={data.ticker} />
             </PanelBoundary>
 
-            {/* Row 5: AI Explanation & Audio Brief */}
-            <div className="ie-grid">
+            {/* AI Side-by-Side Grid */}
+            <div className="ie-grid" style={{ alignItems: "start" }}>
               <PanelBoundary label="AI explanation" key={`explain:${eventKey}`}>
                 <ExplainSignal
                   ticker={data.ticker}

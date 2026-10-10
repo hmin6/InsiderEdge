@@ -13,10 +13,18 @@
   background: rgba(255, 255, 255, 0.06);
   color: #f8fafc;
   cursor: pointer;
-  transition: background-color var(--ie-duration-fast), border-color var(--ie-duration-fast);
+  transition:
+    background-color var(--ie-duration-fast),
+    border-color var(--ie-duration-fast);
 }
-.ie-theme-toggle:hover { background: rgba(255, 255, 255, 0.14); border-color: #93c5fd; }
-.ie-theme-toggle:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+.ie-theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: #93c5fd;
+}
+.ie-theme-toggle:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px;
+}
 
 .ie-radar-sort {
   position: relative;
@@ -673,7 +681,9 @@ h3 {
   .ie-radar-quick-search { margin-right: 0; }
 }
 @media (max-width: 1023px) {
-  .ie-radar-header-bar { justify-content: flex-start; }
+  .ie-radar-header-bar {
+    justify-content: flex-start;
+  }
 }
 
 .ie-radar-search-controls {
@@ -724,6 +734,8 @@ h3 {
     transform var(--ie-duration-fast),
     border-color var(--ie-duration-fast),
     box-shadow var(--ie-duration-fast);
+  cursor: help;
+  position: relative;
 }
 .ie-metric-card:hover {
   transform: translateY(-2px);
@@ -745,11 +757,24 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 
-:root[data-theme="light"] .ie-panel { border-color: var(--ie-border); }
-:root[data-theme="light"] .ie-table th { background: #f1f5f9; color: #475569; }
-:root[data-theme="light"] .ie-table td.ie-priority-column { color: var(--ie-text); background: #eff6ff; }
-:root[data-theme="light"] .ie-metric-grid > div { background: #f1f5f9; border-color: var(--ie-border); }
-:root[data-theme="light"] .ie-metric-grid dt { color: #475569; }
+:root[data-theme="light"] .ie-panel {
+  border-color: var(--ie-border);
+}
+:root[data-theme="light"] .ie-table th {
+  background: #f1f5f9;
+  color: #475569;
+}
+:root[data-theme="light"] .ie-table td.ie-priority-column {
+  color: var(--ie-text);
+  background: #eff6ff;
+}
+:root[data-theme="light"] .ie-metric-grid > div {
+  background: #f1f5f9;
+  border-color: var(--ie-border);
+}
+:root[data-theme="light"] .ie-metric-grid dt {
+  color: #475569;
+}
 :root[data-theme="light"] .ie-radar-sort-menu,
 :root[data-theme="light"] .ie-radar-sort-flyout {
   background: rgba(255, 255, 255, 0.95);
@@ -775,7 +800,9 @@ h3 {
 :root[data-theme="light"] .ie-radar-sort-flyout button:focus-visible { outline-color: var(--ie-focus); }
 :root[data-theme="light"] .ie-radar-sort-menu button:focus-visible { outline-color: var(--ie-focus); }
 :root[data-theme="light"] .ie-radar-search,
-:root[data-theme="light"] .ie-radar-search p { color: var(--ie-text); }
+:root[data-theme="light"] .ie-radar-search p {
+  color: var(--ie-text);
+}
 :root[data-theme="light"] .ie-radar-search input,
 :root[data-theme="light"] .ie-radar-search-controls input[type="search"] {
   background: rgba(255, 255, 255, 0.9);
@@ -783,24 +810,73 @@ h3 {
   border-color: #94a3b8;
 }
 :root[data-theme="light"] .ie-radar-search input::placeholder,
-:root[data-theme="light"] .ie-radar-search-controls input[type="search"]::placeholder,
-:root[data-theme="light"] .ie-radar-filter-count { color: var(--ie-muted); }
+:root[data-theme="light"]
+  .ie-radar-search-controls
+  input[type="search"]::placeholder,
+:root[data-theme="light"] .ie-radar-filter-count {
+  color: var(--ie-muted);
+}
 :root[data-theme="light"] .ie-radar-search-controls input[type="search"]:focus {
   border-color: var(--ie-focus);
   outline: 2px solid var(--ie-focus);
   outline-offset: 2px;
 }
-:root[data-theme="light"] .ie-badge { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
-:root[data-theme="light"] .ie-badge--info { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
-:root[data-theme="light"] .ie-badge--warning { background: #fffbeb; color: #854d0e; border-color: #fde68a; }
-:root[data-theme="light"] .ie-badge--positive { background: #edf7f1; color: #21603d; border-color: #bddac9; }
-:root[data-theme="light"] .ie-badge--negative { background: #fff0f0; color: #9b3232; border-color: #eccaca; }
-:root[data-theme="light"] .ie-button { background: rgba(255, 255, 255, 0.85); border-color: #94a3b8; }
-:root[data-theme="light"] .ie-button:hover { background: #e2e8f0; }
-:root[data-theme="light"] .ie-button--primary { background: var(--ie-primary); color: #fff; border-color: var(--ie-primary); }
-:root[data-theme="light"] .ie-button--primary:hover { background: var(--ie-primary-hover); }
-:root[data-theme="light"] .ie-button:disabled { background: #e2e8f0; color: #64748b; border-color: #cbd5e1; }
-:root:not([data-theme="light"]) .ie-state { background: rgba(255, 255, 255, 0.04); border-color: var(--ie-border); }
-:root:not([data-theme="light"]) .ie-state--error { background: rgba(127, 29, 29, 0.2); border-color: #b45353; }
-:root:not([data-theme="light"]) .ie-skeleton { background: #2a374f; }
-.ie-radar-search-controls input[type="search"]::placeholder { color: var(--ie-muted); }
+:root[data-theme="light"] .ie-badge {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+:root[data-theme="light"] .ie-badge--info {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+:root[data-theme="light"] .ie-badge--warning {
+  background: #fffbeb;
+  color: #854d0e;
+  border-color: #fde68a;
+}
+:root[data-theme="light"] .ie-badge--positive {
+  background: #edf7f1;
+  color: #21603d;
+  border-color: #bddac9;
+}
+:root[data-theme="light"] .ie-badge--negative {
+  background: #fff0f0;
+  color: #9b3232;
+  border-color: #eccaca;
+}
+:root[data-theme="light"] .ie-button {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: #94a3b8;
+}
+:root[data-theme="light"] .ie-button:hover {
+  background: #e2e8f0;
+}
+:root[data-theme="light"] .ie-button--primary {
+  background: var(--ie-primary);
+  color: #fff;
+  border-color: var(--ie-primary);
+}
+:root[data-theme="light"] .ie-button--primary:hover {
+  background: var(--ie-primary-hover);
+}
+:root[data-theme="light"] .ie-button:disabled {
+  background: #e2e8f0;
+  color: #64748b;
+  border-color: #cbd5e1;
+}
+:root:not([data-theme="light"]) .ie-state {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--ie-border);
+}
+:root:not([data-theme="light"]) .ie-state--error {
+  background: rgba(127, 29, 29, 0.2);
+  border-color: #b45353;
+}
+:root:not([data-theme="light"]) .ie-skeleton {
+  background: #2a374f;
+}
+.ie-radar-search-controls input[type="search"]::placeholder {
+  color: var(--ie-muted);
+}
