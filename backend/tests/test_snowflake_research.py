@@ -284,3 +284,82 @@ def test_numeric_quantitative_assignments_are_rejected(monkeypatch, statement):
     ai_providers.post.side_effect = None
     ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
     assert research(evidence, SnowflakeProvider()).status == 'unavailable'
+
+
+@pytest.mark.parametrize('case,expected', [
+    ('configuration', 'configuration_missing'), ('no_event', 'research_event_missing'),
+    ('malformed', 'provider_response_invalid'), ('finish', 'finish_reason_rejected'),
+    ('schema', 'schema_validation_failed'), ('safety', 'safety_language_rejected'),
+    ('numeric', 'numeric_grounding_rejected'), ('unexpected', 'unexpected_error'),
+])
+def test_safe_unavailable_diagnostics(monkeypatch, caplog, case, expected):
+    import logging
+    from copy import deepcopy
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    evidence = deepcopy(EVIDENCE)
+    evidence['company_name'] = 'PRIVATE_EVIDENCE_MARKER'
+    if case != 'configuration':
+        configure(monkeypatch)
+    if case == 'no_event':
+        evidence['event'] = None
+    ai_providers.post.side_effect = None
+    content = {**CONTENT}
+    if case == 'schema':
+        content = {'event_context': ['RAW_PROVIDER_MARKER']}
+    elif case == 'safety':
+        content = {**CONTENT, 'event_context': ['Buy RAW_PROVIDER_MARKER.']}
+    elif case == 'numeric':
+        content = {**CONTENT, 'event_context': ['RAW_PROVIDER_MARKER 99999']}
+    response = body(content, finish_reason='length' if case == 'finish' else '')
+    if case == 'malformed':
+        response = b'RAW_PROVIDER_MARKER not JSON synthetic-test-token'
+    ai_providers.post.return_value = response, 'application/json'
+    provider = SnowflakeProvider()
+    if case == 'unexpected':
+        provider = Mock()
+        provider.generate.side_effect = ValueError('RAW_PROVIDER_MARKER synthetic-test-token')
+    result = research(evidence, provider)
+    assert result.status == 'unavailable' and result.context is None and result.model is None
+    assert set(result.model_dump()) == {'ticker', 'research_event_id', 'provider', 'model',
+                                       'status', 'context', 'provenance', 'limitations'}
+    records = [r for r in caplog.records if r.name == 'app.services.snowflake_research']
+    assert len(records) == 1
+    message = records[0].getMessage()
+    assert 'ticker=AAPL' in message and f'reason={expected}' in message
+    assert ('research_event_id=None' if case == 'no_event' else
+            'research_event_id=AAPL:2026-03-16') in message
+    assert records[0].exc_info is None
+    for forbidden in ('synthetic-test-token', 'Authorization', 'RAW_PROVIDER_MARKER',
+                      'PRIVATE_EVIDENCE_MARKER', 'event_context', 'Use only supplied evidence'):
+        assert forbidden not in caplog.text
+    assert expected not in result.model_dump_json()
+
+
+@pytest.mark.parametrize('failure,expected', [
+    (TimeoutError('RAW_PROVIDER_MARKER'), 'provider_timeout'),
+    (ValueError('RAW_PROVIDER_MARKER'), 'provider_response_invalid'),
+])
+def test_transport_diagnostic_categories(monkeypatch, caplog, failure, expected):
+    import logging
+    configure(monkeypatch)
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    monkeypatch.setattr(ai_providers, 'post', REAL_POST)
+    monkeypatch.setattr(ai_providers, 'build_opener', Mock(side_effect=failure))
+    assert research(EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+    assert f'reason={expected}' in caplog.text
+    assert 'RAW_PROVIDER_MARKER' not in caplog.text
+
+
+def test_http_error_diagnostic_is_safe(monkeypatch, caplog):
+    import logging
+    from urllib.error import HTTPError
+    configure(monkeypatch)
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    monkeypatch.setattr(ai_providers, 'post', REAL_POST)
+    error = HTTPError('https://private.test', 403, 'RAW_PROVIDER_MARKER',
+                      {'Authorization': 'synthetic-test-token'}, None)
+    monkeypatch.setattr(ai_providers, 'build_opener', Mock(side_effect=error))
+    assert research(EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+    assert 'reason=provider_http_error' in caplog.text
+    for forbidden in ('private.test', 'RAW_PROVIDER_MARKER', 'Authorization', 'synthetic-test-token'):
+        assert forbidden not in caplog.text

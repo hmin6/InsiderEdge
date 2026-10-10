@@ -1,5 +1,6 @@
 """Optional, read-only qualitative context. Never imports or writes scoring data."""
 import json
+import logging
 import os
 import re
 from typing import Annotated, Literal
@@ -10,6 +11,9 @@ from sqlalchemy import select
 
 from app.db.models import ResearchEvent, InsiderTransaction
 from app.services import ai_providers
+
+logger = logging.getLogger(__name__)
+
 
 Text = Annotated[str, StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=700)]
 Section = Annotated[list[Text], Field(min_length=1, max_length=6)]
@@ -127,15 +131,20 @@ def assemble(session, company):
 
 class SnowflakeProvider:
     def generate(self, evidence):
-        token, model, timeout = ai_providers.configuration(
-            'SNOWFLAKE_PAT', 'SNOWFLAKE_MODEL', 'llama3.1-8b', 'SNOWFLAKE_TIMEOUT_SECONDS')
+        try:
+            token, model, timeout = ai_providers.configuration(
+                'SNOWFLAKE_PAT', 'SNOWFLAKE_MODEL', 'llama3.1-8b', 'SNOWFLAKE_TIMEOUT_SECONDS')
+        except ai_providers.ProviderFailure:
+            raise ai_providers.ProviderFailure(
+                'Snowflake configuration unavailable', reason_category='configuration_missing') from None
         origin = os.environ.get('SNOWFLAKE_ACCOUNT_URL', '').strip()
         parsed = urlsplit(origin)
         if (parsed.scheme != 'https' or not parsed.hostname
                 or not re.fullmatch(r'[a-zA-Z0-9-]+\.snowflakecomputing\.com', parsed.hostname)
                 or parsed.username or parsed.password or parsed.port
                 or parsed.path not in ('', '/') or parsed.query or parsed.fragment):
-            raise ai_providers.ProviderFailure('Snowflake configuration unavailable')
+            raise ai_providers.ProviderFailure('Snowflake configuration unavailable',
+                                               reason_category='configuration_missing')
         serialized_evidence = json.dumps(evidence, allow_nan=False)
         grounded_numbers = numeric_tokens(serialized_evidence)
         body, mime = ai_providers.post(
@@ -145,28 +154,37 @@ class SnowflakeProvider:
              'messages': [{'role': 'system', 'content': INSTRUCTIONS},
                           {'role': 'user', 'content': serialized_evidence}]},
             timeout, 128 * 1024)
+        category = 'provider_response_invalid'
         try:
             response = json.loads(body)
             choices = response['choices']
             # Cortex can return an empty reason for a complete assistant message.
             # JSON/schema validation below establishes content completeness.
-            if (mime != 'application/json' or len(choices) != 1
-                    or choices[0].get('finish_reason') not in ('', 'stop')):
+            if mime != 'application/json' or len(choices) != 1:
                 raise ValueError
-            context = Context.model_validate(json.loads(choices[0]['message']['content']))
+            if choices[0].get('finish_reason') not in ('', 'stop'):
+                category = 'finish_reason_rejected'
+                raise ValueError
+            content = json.loads(choices[0]['message']['content'])
+            category = 'schema_validation_failed'
+            context = Context.model_validate(content)
             for section in context.model_dump().values():
                 for text in section:
+                    category = 'safety_language_rejected'
                     if (token in text or re.search(r'[<>]|https?://|\b(buy|sell|hold|causes?|caused|guarantee(?:d|s)?|causal(?:ity)?)\b', text, re.I)):
                         raise ValueError
+                    category = 'numeric_grounding_rejected'
                     numbers = numeric_tokens(text, require_complete=True)
                     if not numbers <= grounded_numbers:
                         raise ValueError
                     # These quantitative outputs are never supplied to this provider.
+                    category = 'safety_language_rejected'
                     if QUANTITATIVE_CLAIM.search(text):
                         raise ValueError
             return model, context
         except Exception:
-            raise ai_providers.ProviderFailure('Snowflake response unavailable') from None
+            raise ai_providers.ProviderFailure('Snowflake response unavailable',
+                                               reason_category=category) from None
 
 
 def research(evidence, provider):
@@ -174,10 +192,24 @@ def research(evidence, provider):
     base = dict(ticker=evidence['ticker'], research_event_id=event['research_event_id'] if event else None,
                 provenance={'source': 'Persisted InsiderEdge research event and frozen company metadata',
                             'evidence': evidence}, limitations=LIMITATIONS)
+    category = 'research_event_missing'
     if event:
         try:
             model, context = provider.generate(evidence)
             return ResearchResponse(**base, model=model, status='available', context=context)
-        except (ai_providers.ProviderFailure, ValueError, TypeError):
-            pass
+        except (ai_providers.ProviderFailure, ValueError, TypeError) as error:
+            category = getattr(error, 'reason_category', 'unexpected_error')
+    # Only fixed categories and validated identifiers; no provider text or exc_info.
+    allowed = {'configuration_missing', 'provider_timeout', 'provider_http_error',
+               'provider_response_invalid', 'finish_reason_rejected', 'schema_validation_failed',
+               'safety_language_rejected', 'numeric_grounding_rejected', 'unexpected_error',
+               'research_event_missing'}
+    if category not in allowed:
+        category = 'unexpected_error'
+    ticker = evidence['ticker']
+    identifier = base['research_event_id']
+    safe_ticker = ticker if re.fullmatch(r'[A-Z0-9.-]{1,20}', ticker) else 'invalid'
+    safe_event = identifier if identifier and re.fullmatch(r'[A-Z0-9.-]{1,20}:\d{4}-\d{2}-\d{2}', identifier) else None
+    logger.warning('Snowflake research unavailable ticker=%s research_event_id=%s reason=%s',
+                   safe_ticker, safe_event, category)
     return ResearchResponse(**base, status='unavailable')
