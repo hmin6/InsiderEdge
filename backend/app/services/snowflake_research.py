@@ -161,6 +161,17 @@ def numbers_grounded(numbers, grounded_numbers):
         for token in numbers)
 
 
+
+def grounded_year_reference(text, match, grounded_years):
+    """Permit date abstractions only in explicit calendar-year prose contexts."""
+    year = match.group(0)
+    if not re.fullmatch(r'[0-9]{4}', year) or year not in grounded_years:
+        return False
+    before, after = text[:match.start()], text[match.end():]
+    return bool(re.search(r'\b(?:in|during)\s+$', before, re.I)
+                or re.match(r'\s+(?:filings?|transactions?|insider\s+activity)\b', after, re.I))
+
+
 def assemble(session, company):
     event = session.scalar(select(ResearchEvent).where(ResearchEvent.ticker == company.ticker)
                            .order_by(ResearchEvent.public_event_day.desc()).limit(1))
@@ -224,6 +235,7 @@ class SnowflakeProvider:
                                                reason_category='configuration_missing')
         serialized_evidence = json.dumps(evidence, allow_nan=False)
         grounded_numbers = numeric_tokens(serialized_evidence)
+        grounded_years = {match.group(0)[:4] for match in ISO_DATE_TOKEN.finditer(serialized_evidence)}
         body, mime = ai_providers.post(
             origin.rstrip('/') + '/api/v2/cortex/v1/chat/completions',
             {'Authorization': 'Bearer ' + token, 'Accept': 'application/json'},
@@ -251,11 +263,12 @@ class SnowflakeProvider:
                     if (token in text or re.search(r'[<>]|https?://|\b(buy|sell|hold|causes?|caused|guarantee(?:d|s)?|causal(?:ity)?)\b', text, re.I)):
                         raise ValueError
                     category = 'numeric_grounding_rejected'
-                    numbers = numeric_tokens(text, require_complete=True)
-                    if not numbers_grounded(numbers, grounded_numbers):
-                        matches = numeric_matches(text)
-                        first = next(match for match in matches
-                                     if not numbers_grounded({match.group(0)}, grounded_numbers))
+                    numeric_tokens(text, require_complete=True)
+                    matches = numeric_matches(text)
+                    first = next((match for match in matches
+                                  if not numbers_grounded({match.group(0)}, grounded_numbers)
+                                  and not grounded_year_reference(text, match, grounded_years)), None)
+                    if first is not None:
                         raise NumericGroundingFailure(first.group(0), source=numeric_source(
                             matches, first.start(), first.end()))
                     # These quantitative outputs are never supplied to this provider.
