@@ -30,13 +30,13 @@ export type CompanyResponse = {
 
 export type PricePoint = {
   date: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  adjusted_close: number;
-  analysis_price: number;
-  volume: number;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number | null;
+  adjusted_close: number | null;
+  analysis_price: number | null;
+  volume: number | null;
 };
 
 export type PricesResponse = {
@@ -46,17 +46,17 @@ export type PricesResponse = {
 
 export type InsiderTransaction = {
   transaction_id: string;
-  accession_number: string | null;
-  source_type: string;
-  document_type: string;
-  insider_name: string;
-  insider_role: string;
+  accession_number: string;
+  source_type: "bulk" | "edgar";
+  document_type: string | null;
+  insider_name: string | null;
+  insider_role: string | null;
   transaction_date: string;
   filing_date: string;
   accepted_at: string | null;
   public_event_day: string | null;
   transaction_code: string;
-  acquired_or_disposed: string | null;
+  acquired_or_disposed: string;
   derivative_flag: boolean;
   security_title: string | null;
   shares: number | null;
@@ -64,13 +64,30 @@ export type InsiderTransaction = {
   transaction_value: number | null;
   shares_owned_after: number | null;
   direct_or_indirect: string | null;
-  aff10b5one: boolean;
+  aff10b5one: boolean | null;
   is_amendment: boolean;
   is_p0_qualifying: boolean;
+};
+
+export type ResearchEventSummary = {
+  research_event_id: string;
+  public_event_day: string;
+  information_date: string;
+  source_transaction_count: number;
+  source_filing_count: number;
+  aggregate_purchase_value: number | null;
+  unique_buyer_count: number | null;
+  role_bucket: "Executive" | "Director" | "Other";
+  has_executive: boolean;
+  has_director: boolean;
+  has_other: boolean;
+  has_cfo: boolean | null;
+  max_valid_ownership_change_pct: number | null;
+  any_new_position_flag: boolean | null;
 };
 
 export type InsidersResponse = {
   ticker: string;
   transactions: InsiderTransaction[];
-  research_events: any[];
+  research_events: ResearchEventSummary[];
 };

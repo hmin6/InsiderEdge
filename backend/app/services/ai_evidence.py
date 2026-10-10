@@ -8,6 +8,7 @@ from app.api.schemas import Probability, RadarItem, ResearchEventSummary
 from app.db.models import Company
 from app.services.companyfacts import METRICS, as_of
 from app.services.core_reads import latest_events, radar_item
+from app.services.research_reads import statistics, statistics_values
 
 
 class Evidence(BaseModel):
@@ -30,17 +31,26 @@ class Evidence(BaseModel):
 
 
 def assemble(session, frozen, universe):
-    """One replaceable assembly interface for future Person 2 persisted outputs."""
+    """Read validated persisted evidence; never forward current-event outcomes."""
     latest = session.execute(latest_events([frozen.ticker])).first()
     event, signal, stored = latest if latest else (None, None, session.get(Company, frozen.ticker))
     limitations = [
         'Research priority is not an investment recommendation or evidence of causation.',
         'Frozen current-universe historical research can have survivorship/selection bias.',
         'Current-event realized CAR5/CAR30/CAR90 outcomes are excluded from information-time evidence.',
-        'Historical comparable-outcome statistics are unavailable pending verified outcome-availability provenance.',
-        'Pre-event stock return, sector return and drawdown are not yet integrated as persisted evidence.',
         'Held-out model evaluation metrics are not yet integrated as persisted evidence.',
     ]
+    # The shared read path checks latest-event/signal/version/information-date
+    # bindings. Legacy or unscored events degrade to null evidence there.
+    sections = statistics(session, frozen).model_dump(mode='json') if event else statistics_values(None)
+    historical = sections['statistical_validation']
+    market = sections['market']
+    if all(value is None for key, value in historical.items() if key != 'status'):
+        limitations.append('Historical comparable-outcome statistics are unavailable without validated persisted provenance.')
+    elif historical['status'] != 'complete':
+        limitations.append('Historical statistical evidence is partial; unavailable components remain unknown.')
+    if any(market[key] is None for key in ('stock_return_90d', 'sector_return_90d', 'drawdown')):
+        limitations.append('Some or all pre-event stock return, sector return and drawdown evidence is unavailable.')
     if event is None:
         limitations.append('No persisted research event is available; no event-time fundamentals can be selected.')
     if signal is None:
@@ -82,12 +92,9 @@ def assemble(session, frozen, universe):
         model_name=signal.model_name if signal else None,
         model_version=signal.model_version if signal else None,
         model_probability=signal.model_probability if signal else None,
-        historical_statistics={
-            'status': 'unavailable_pending_outcome_availability_provenance',
-            'comparable_event_count': None, 'cohort_definition': None, 'mean_car30': None,
-            'bootstrap_ci_95': None, 'randomization_p_value': None,
-        },
-        market_context={'status': 'unavailable', 'stock_return_90d': None,
-                        'sector_return_90d': None, 'drawdown': None},
+        # Deliberately select only comparator and pre-event market sections:
+        # event_study CAR is retrospective, even when the read API exposes it.
+        historical_statistics=historical,
+        market_context=market,
         fundamentals=facts, limitations=limitations,
     )

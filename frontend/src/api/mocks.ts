@@ -72,7 +72,13 @@ export const DEV_MOCK_INSIDERS: InsidersResponse = {
     }
   ],
   research_events: [
-    { id: "event-1" } // Added to pass the length check
+    {
+      research_event_id: "event-1", public_event_day: "2026-09-18", information_date: "2026-09-17",
+      source_transaction_count: 1, source_filing_count: 1, aggregate_purchase_value: 1525000,
+      unique_buyer_count: null, role_bucket: "Executive", has_executive: true,
+      has_director: false, has_other: false, has_cfo: null,
+      max_valid_ownership_change_pct: null, any_new_position_flag: null,
+    }
   ]
 };
 
@@ -80,8 +86,8 @@ export const DEV_MOCK_STATISTICS: StatisticsResponse = {
   ticker: "AAPL",
   research_event_id: "evt-1",
   public_event_day: "2026-10-08",
-  anomaly: { score: 90, status: "complete" },
-  activity: { score: 80, status: "complete" },
+  anomaly: { score: 90, mahalanobis_distance: null, reference_population: null, reference_count: null, status: "partial_diagnostics_unavailable" },
+  activity: { score: 80, recent_purchase_rate: null, historical_purchase_rate: null, rate_ratio: null, buyers_30d: null, reference_population: null, status: "partial_diagnostics_unavailable" },
   event_study: { car5: 0.05, car30: 0.12, car90: 0.25, status: "complete" },
   statistical_validation: {
     comparable_event_count: 45,
@@ -91,7 +97,8 @@ export const DEV_MOCK_STATISTICS: StatisticsResponse = {
     randomization_p_value: 0.03,
     statistical_score: 75,
     status: "complete"
-  }
+  },
+  market: { stock_return_90d: null, sector_return_90d: null, drawdown: null, dislocation_score: 85, status: "partial_diagnostics_unavailable" }
 };
 
 export const DEV_MOCK_PREDICTION: PredictionResponse = {
@@ -99,5 +106,7 @@ export const DEV_MOCK_PREDICTION: PredictionResponse = {
   research_event_id: "evt-1",
   model_name: "XGBoost-v2",
   outperformance_probability: 0.65,
-  status: "complete"
+  classification_threshold: null,
+  metrics: null,
+  status: "partial_evaluation_unavailable"
 };

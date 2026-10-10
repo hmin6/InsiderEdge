@@ -10,17 +10,20 @@ from unittest.mock import Mock
 
 import pytest
 from pydantic import ValidationError
-from sqlalchemy import select, func
+from sqlalchemy import create_engine, select, func
 from sqlalchemy.orm import Session
 
 from test_core_api import setup, research, seed
 from app.api.ai import get_gemini, get_elevenlabs
 from app.api.schemas import ExplainResponse, BriefResponse
-from app.db.models import Fundamental, ResearchEvent, Signal
+from app.db.models import Base, Company, Fundamental, ResearchEvent, Signal
 from app.services import ai_providers, ai_research
 from app.services.ai_evidence import assemble
 from app.services.ai_providers import GeminiProvider, ElevenLabsProvider, ProviderFailure
-from app.services.universe import Universe
+from app.services.universe import CompanyMetadata, Universe
+from app.services import research_reads
+from app.services.signal_integration import build_signals, persist_signals
+from test_signal_integration import inputs, history
 
 REAL_POST = ai_providers.post
 
@@ -133,6 +136,100 @@ def test_latest_event_never_borrows_older_signal(setup):
         assert evidence.event.public_event_day == date(2026,10,5)
         assert evidence.model_probability is None
         assert evidence.precomputed_signal.insider_edge_score is None
+
+
+@pytest.fixture
+def persisted_ai_evidence(inputs):
+    """Use the actual validated integration/persistence path, never live data."""
+    inputs['comparable_history'] = history(inputs)
+    statistical = inputs['statistical']
+    statistical['comparable_event_ids'] = [history(inputs).research_event_id.tolist()]
+    statistical['comparable_event_count'] = 10
+    statistical['cohort_definition'] = 'same_sector'
+    statistical['mean_car30'] = 0.
+    statistical['bootstrap_ci_lower'] = -.02
+    statistical['bootstrap_ci_upper'] = .03
+    statistical['randomization_p_value'] = 0.
+    statistical['status'] = 'partial'
+    inputs['dislocation']['stock_return_90d'] = 0.
+    inputs['dislocation']['sector_return_90d'] = -.1
+    inputs['dislocation']['drawdown_90d'] = 0.
+    inputs['event_studies']['car5'] = .654321
+    inputs['event_studies']['car5_status'] = 'complete'
+    inputs['observation_cutoff'] = inputs['expected_sessions'][205]
+    inputs['model_version'] = 'synthetic-frozen-version'
+    batch = build_signals(**inputs)
+    engine = create_engine('sqlite://')
+    Base.metadata.create_all(engine)
+    event = inputs['events'].iloc[0]
+    with Session(engine) as session, session.begin():
+        session.add(Company(ticker='ABC', company_name='Synthetic'))
+        session.add(research(ticker='ABC', day=event.public_event_day.date(), research_event_id='event:0',
+                             information_date=event.information_date.date(), feature_metadata={'unrelated': 'preserved'}))
+    with Session(engine) as session, session.begin():
+        persist_signals(session, batch)
+    universe = Universe([CompanyMetadata('ABC', None, 'Synthetic', 'Technology')])
+    yield engine, universe
+    engine.dispose()
+
+
+def test_ai_reuses_validated_persisted_statistics_without_current_event_car(persisted_ai_evidence):
+    engine, universe = persisted_ai_evidence
+    with Session(engine) as session:
+        frozen = universe.ticker_to_company('ABC')
+        before = deepcopy(session.get(ResearchEvent, 'event:0').feature_metadata)
+        evidence = assemble(session, frozen, universe)
+        statistics = research_reads.statistics(session, frozen)
+        assert evidence.historical_statistics == statistics.statistical_validation.model_dump(mode='json')
+        assert evidence.market_context == statistics.market.model_dump(mode='json')
+        assert evidence.historical_statistics['mean_car30'] == 0
+        assert evidence.historical_statistics['randomization_p_value'] == 0
+        assert evidence.market_context['stock_return_90d'] == 0
+        assert evidence.market_context['drawdown'] == 0
+        assert evidence.model_version == 'synthetic-frozen-version'
+        assert statistics.event_study.car5 == .654321  # retrospective API display only
+        serialized = evidence.model_dump_json()
+        assert '.654321' not in serialized and 'event_study' not in serialized
+        assert not any('pending verified' in text or 'not yet integrated as persisted evidence' in text
+                       for text in evidence.limitations if 'Held-out' not in text)
+        assert session.get(ResearchEvent, 'event:0').feature_metadata == before
+        text = ai_research.transcript(evidence)
+        assert 'Comparable historical mean CAR30 (decimal return): 0.' in text
+        assert 'Historical randomization p-value: 0.' in text
+        assert 'Historical 95 percent bootstrap interval (decimal returns): -0.02 to 0.03.' in text
+        assert 'Pre-event 90-session stock return (decimal): 0.' in text
+        assert 'Pre-event 90-session sector return (decimal): -0.1.' in text
+        assert '.654321' not in text and 'not integrated in this brief' not in text
+        response = ai_research.brief(evidence, Mock(synthesize=Mock(side_effect=TimeoutError())))
+        assert response.transcript == text and response.status == 'audio_unavailable'
+
+
+@pytest.mark.parametrize('invalid_binding', ['model_version', 'information_date', 'newer_unscored_event'])
+def test_ai_withholds_stale_or_unmatched_snapshot(persisted_ai_evidence, invalid_binding):
+    engine, universe = persisted_ai_evidence
+    with Session(engine) as session, session.begin():
+        event = session.get(ResearchEvent, 'event:0')
+        if invalid_binding == 'model_version':
+            session.scalar(select(Signal)).model_version = 'different-version'
+        elif invalid_binding == 'information_date':
+            original = event.feature_metadata[research_reads.EVIDENCE_KEY]
+            event.feature_metadata = {**event.feature_metadata, research_reads.EVIDENCE_KEY: {
+                **original, 'information_date': '2099-01-01'}}
+        else:
+            session.add(research(ticker='ABC', day=date(2026, 10, 5)))
+        session.flush()
+        evidence = assemble(session, universe.ticker_to_company('ABC'), universe)
+        assert evidence.historical_statistics['mean_car30'] is None
+        assert evidence.historical_statistics['bootstrap_ci_95'] is None
+        assert evidence.market_context['stock_return_90d'] is None
+        assert evidence.market_context['drawdown'] is None
+        assert any('without validated persisted provenance' in text for text in evidence.limitations)
+        if invalid_binding == 'newer_unscored_event':
+            assert evidence.model_probability is None
+            assert evidence.event.public_event_day == date(2026, 10, 5)
+        text = ai_research.transcript(evidence)
+        assert 'Comparable historical mean CAR30 (decimal return) is unavailable.' in text
+        assert 'Pre-event 90-session stock return (decimal) is unavailable.' in text
 
 
 @pytest.mark.parametrize('malformed', [None, [], 'raw text', {'why_flagged': []},

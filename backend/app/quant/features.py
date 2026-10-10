@@ -13,6 +13,7 @@ from math import log
 import numpy as np
 import pandas as pd
 
+from app.services.events.buyers import BuyerEvidence
 
 EVENT_KEY = "research_event_id"
 _TRUE = {True, 1, "1", "true", "True", "TRUE", "yes", "Y"}
@@ -160,12 +161,39 @@ def _price_features(
     return result
 
 
+def _supported_buyers(transactions: pd.DataFrame, evidence_by_transaction_id: Mapping) -> tuple[int | None, dict]:
+    """Require existing transaction-associated evidence for every window row.
+
+    A zero means the supplied qualifying window is empty, never that its owners
+    were unnamed. Names and filing-wide owner groups are not identity evidence.
+    """
+    identities, sources, unknown = set(), set(), []
+    for row in transactions.to_dict('records'):
+        transaction_id = row.get('transaction_id')
+        evidence = evidence_by_transaction_id.get(transaction_id) if isinstance(transaction_id, str) else None
+        if (not isinstance(evidence, BuyerEvidence) or not evidence.identities
+                or not isinstance(evidence.source, str) or not evidence.source.strip()
+                or any(not isinstance(identity, str) or not identity.strip() for identity in evidence.identities)):
+            unknown.append(transaction_id if isinstance(transaction_id, str) else 'missing_transaction_id')
+        else:
+            identities.update(identity.strip() for identity in evidence.identities)
+            sources.add(evidence.source)
+    return (None if unknown else len(identities)), {
+        'status': 'unknown' if unknown else ('supported' if len(transactions) else 'no_qualifying_transactions'),
+        'canonical_identity_verified': not unknown,
+        'reason': 'buyer identity/count unknown: no reliable transaction-associated evidence' if unknown else None,
+        'unknown_transaction_ids': sorted(set(unknown)),
+        'evidence_sources': sorted(sources),
+    }
+
+
 def build_event_features(
     research_events: pd.DataFrame,
     transactions: pd.DataFrame,
     prices: pd.DataFrame,
     *,
     sector_etf_by_ticker: Mapping[str, str] | None = None,
+    buyer_evidence: Mapping[str, BuyerEvidence] | None = None,
 ) -> pd.DataFrame:
     """Return one pre-event feature row per ``research_event_id``.
 
@@ -173,6 +201,9 @@ def build_event_features(
     matched on ticker + public_event_day, then only qualifying filings with
     ``filing_date <= information_date`` contribute. Seven/thirty-day windows
     are inclusive calendar windows ending on the event information date.
+    ``buyer_evidence`` reuses the event builder's transaction-id -> BuyerEvidence
+    contract. Incomplete identity coverage makes that window's count null, with
+    per-window ``buyer_identity_diagnostics``. ML provenance checks still apply.
     Recent rate is distinct event days in the inclusive current 30 days / 30;
     historical rate is events in the preceding 365 days, excluding those 30
     recent days, / 365. Missing/unavailable values remain ``None``.
@@ -201,8 +232,6 @@ def build_event_features(
         tx["public_event_day"] = _date_series(tx["public_event_day"])
     if "transaction_value" not in tx:
         tx["transaction_value"] = np.nan
-    if "insider_name" not in tx:
-        tx["insider_name"] = pd.NA
     if "filing_date" not in tx:
         tx["filing_date"] = pd.NaT
     tx["_qualifies"] = _qualifying_mask(tx)
@@ -227,12 +256,12 @@ def build_event_features(
         values = pd.to_numeric(event_tx["transaction_value"], errors="coerce")
         valid_values = values[np.isfinite(values) & values.ge(0)]
         aggregate = float(valid_values.sum()) if len(valid_values) else None
-        names = ticker_tx["insider_name"].dropna().astype("string").str.strip().str.casefold()
-        names = names.loc[names.ne("")]
         tx_dates = ticker_tx["filing_date"]
         start7, start30 = information_date - pd.Timedelta(days=6), information_date - pd.Timedelta(days=29)
         window7 = tx_dates.between(start7, information_date, inclusive="both")
         window30 = tx_dates.between(start30, information_date, inclusive="both")
+        buyers7, diagnostics7 = _supported_buyers(ticker_tx.loc[window7], buyer_evidence or {})
+        buyers30, diagnostics30 = _supported_buyers(ticker_tx.loc[window30], buyer_evidence or {})
         value_series = pd.to_numeric(ticker_tx["transaction_value"], errors="coerce")
         valid_window_values = value_series.where(value_series.ge(0))
 
@@ -265,8 +294,9 @@ def build_event_features(
             "has_cfo": record.get("has_cfo"),
             "has_director": record.get("has_director"),
             "role_bucket": record.get("role_bucket"),
-            "unique_buyers_7d": int(names.loc[window7.reindex(names.index, fill_value=False)].nunique()) if len(names) else 0,
-            "unique_buyers_30d": int(names.loc[window30.reindex(names.index, fill_value=False)].nunique()) if len(names) else 0,
+            "unique_buyers_7d": buyers7,
+            "unique_buyers_30d": buyers30,
+            "buyer_identity_diagnostics": {"7d": diagnostics7, "30d": diagnostics30},
             "purchase_value_7d": float(valid_window_values.loc[window7].sum()) if valid_window_values.loc[window7].notna().any() else None,
             "purchase_value_30d": float(valid_window_values.loc[window30].sum()) if valid_window_values.loc[window30].notna().any() else None,
             "recent_purchase_rate": float(recent_events / 30),
@@ -344,7 +374,7 @@ FEATURE_DEFINITIONS = {
     "log_aggregate_purchase_value": "Natural log of aggregate_purchase_value; unitless; null if aggregate is missing or nonpositive.",
     "max_valid_ownership_change_pct": "Person 1 research_events.max_valid_ownership_change_pct when supplied, else maximum insider_transactions.shares / (shares_owned_after - shares) for valid positive prior ownership; ratio; null if unavailable.",
     "any_new_position_flag": "Person 1 research_events.any_new_position_flag when supplied, else whether any qualifying transaction has shares_owned_after - shares == 0; boolean; null when ownership evidence is incomplete.",
-    "unique_buyers_7d/30d": "Distinct normalized insider_transactions.insider_name values filed in inclusive 7/30 calendar days ending on information_date; count; zero if no named buyers.",
+    "unique_buyers_7d/30d": "Distinct supported canonical buyers associated with every qualifying transaction filed in inclusive 7/30 calendar days ending on information_date; null with buyer_identity_diagnostics if identity coverage is incomplete; zero only for an empty qualifying window in the supplied data. Names alone never establish identity.",
     "purchase_value_7d/30d": "Sum nonnegative insider_transactions.transaction_value filed in inclusive 7/30 calendar days ending on information_date; currency units; null if no valid values.",
     "recent_purchase_rate": "Count research_events for ticker with information_date in current inclusive 30 calendar days (current event included) / 30; events/day; null only if event dates are unavailable.",
     "historical_purchase_rate": "Count research_events for ticker with information_date in prior 365 calendar days, excluding the current 30 days, / 365; events/day; null only if event dates are unavailable.",
