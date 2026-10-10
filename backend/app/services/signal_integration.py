@@ -2,7 +2,8 @@
 
 No model fitting or quant formula duplication. Callers supply trusted component
 outputs, source provenance, and a complete independent session calendar. Audit
-contains available evidence that has no Signal column; it is NOT durable.
+contains available evidence that has no Signal column. Contract evidence is
+persisted atomically in the existing research-event metadata namespace.
 The caller owns the outer transaction; persistence uses a savepoint for batch
 atomicity and replaces all supported fields of one current row per event.
 """
@@ -42,9 +43,7 @@ HISTORICAL_MEASUREMENTS = (
 class SignalBatch:
     """payloads are persistable; audit retains transient detailed evidence.
 
-    Neither includes held-out metrics unless separately supplied downstream.
-    No claim is made that full statistics/prediction API responses can be
-    reconstructed from Signal, which lacks component diagnostics and metrics.
+    Held-out metrics remain unavailable: no frozen evaluation artifact is stored.
     """
     payloads: tuple[dict, ...]
     audit: dict[str, dict]
@@ -217,7 +216,17 @@ def build_signals(events: pd.DataFrame, event_features: pd.DataFrame,
                                         components={name: frame.loc[identity].to_dict() for name, frame in frames.items()},
                                         prediction=predictions.loc[identity].to_dict(),
                                         persisted_fields=tuple(payload),
-                                        evidence_storage='detailed evidence is in-memory only'))
+                                        classification_threshold=number(selection.threshold, 'threshold', (0, 1)),
+                                        observation_cutoff=cutoff.date().isoformat(),
+                                        historical_provenance={
+                                            'information_date': event.information_date.date().isoformat(),
+                                            'comparators': [dict(
+                                                research_event_id=comparator,
+                                                information_date=history.loc[comparator].information_date.date().isoformat(),
+                                                car30_end=sessions[positions[history.loc[comparator].public_event_day] + 29].date().isoformat(),
+                                            ) for comparator in ids],
+                                        },
+                                        evidence_storage='contract evidence persisted in event metadata'))
     return SignalBatch(tuple(payloads), audits)
 
 
@@ -246,4 +255,19 @@ def persist_signals(session: Session, batch: SignalBatch) -> int:
             statement = (pg_insert if dialect == 'postgresql' else sqlite_insert)(Signal).values(**row)
             session.execute(statement.on_conflict_do_update(index_elements=[KEY], set_={
                 name: getattr(statement.excluded, name) for name in row if name not in ('signal_id', KEY)}))
+            from app.api.schemas import StatisticsResponse
+            from app.services.research_reads import EVIDENCE_KEY, signal_binding, statistics_values
+            audit = batch.audit[row[KEY]]
+            event = session.get(ResearchEvent, row[KEY])
+            response = StatisticsResponse(ticker=row['ticker'], research_event_id=row[KEY],
+                                          public_event_day=row['public_event_day'],
+                                          **statistics_values(row, audit['components']))
+            event.feature_metadata = {**(event.feature_metadata or {}), EVIDENCE_KEY: dict(
+                information_date=event.information_date.isoformat(), binding=signal_binding(row),
+                statistics=response.model_dump(mode='json'),
+                classification_threshold=audit['classification_threshold'],
+                observation_cutoff=audit['observation_cutoff'],
+                historical_provenance=audit['historical_provenance'],
+            )}
+        session.flush()
     return len(ids)

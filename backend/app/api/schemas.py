@@ -121,3 +121,84 @@ class BriefResponse(ResponseModel):
     audio_base64: str | None
     audio_mime_type: str | None
     status: Literal['ok', 'audio_unavailable']
+
+
+class AnomalyResponse(ResponseModel):
+    score: Score | None
+    mahalanobis_distance: float | None
+    reference_population: str | None
+    reference_count: int | None
+    status: str
+
+
+class ActivityResponse(ResponseModel):
+    score: Score | None
+    recent_purchase_rate: float | None
+    historical_purchase_rate: float | None
+    rate_ratio: float | None
+    buyers_30d: int | None
+    reference_population: str | None
+    status: str
+
+
+class EventStudyResponse(ResponseModel):
+    car5: float | None
+    car30: float | None
+    car90: float | None
+    status: str
+
+
+class ConfidenceInterval(ResponseModel):
+    lower: float
+    upper: float
+
+
+class StatisticalValidationResponse(ResponseModel):
+    comparable_event_count: int | None
+    cohort_definition: str | None
+    mean_car30: float | None
+    bootstrap_ci_95: ConfidenceInterval | None
+    randomization_p_value: Probability | None
+    statistical_score: Score | None
+    status: str
+
+
+class MarketResponse(ResponseModel):
+    stock_return_90d: float | None
+    sector_return_90d: float | None
+    drawdown: float | None
+    dislocation_score: Score | None
+    status: str
+
+
+class StatisticsResponse(ResponseModel):
+    ticker: str
+    research_event_id: str
+    public_event_day: date
+    anomaly: AnomalyResponse
+    activity: ActivityResponse
+    event_study: EventStudyResponse
+    statistical_validation: StatisticalValidationResponse
+    market: MarketResponse
+
+
+class PredictionMetrics(ResponseModel):
+    roc_auc: Probability | None
+    brier_score: Probability | None
+    precision: Probability | None
+    recall: Probability | None
+    f1: Probability | None
+    sample_count: int | None
+    positive_class_prevalence: Probability | None
+    split_start: date | None
+    split_end: date | None
+
+
+class PredictionResponse(ResponseModel):
+    ticker: str
+    research_event_id: str
+    model_name: str | None
+    outperformance_probability: Probability | None
+    classification_threshold: Probability | None
+    metrics: PredictionMetrics | None
+    status: str
