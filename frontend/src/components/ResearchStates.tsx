@@ -98,7 +98,6 @@ export function CompanyScore({ data }: { data: CompanyResponse }) {
 }
 
 export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
-  const v = data.statistical_validation;
   return (
     <div className="ie-stack">
       <Panel title="Anomaly & Activity Evidence">
