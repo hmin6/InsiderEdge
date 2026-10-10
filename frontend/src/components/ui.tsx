@@ -60,7 +60,8 @@ export function RoleBadge({ role }: { role: InsiderRole }) {
   return <StatusBadge>{role}</StatusBadge>;
 }
 
-export function ScoreStatusBadge({ status }: { status: 'complete' | 'partial' | 'insufficient_data' }) {
+export function ScoreStatusBadge({ status, availability }: { status: 'complete' | 'partial' | 'insufficient_data'; availability?: import('../types/api').AvailabilityStatus | null }) {
+  if (availability === 'not_scored') return <StatusBadge>Not scored</StatusBadge>;
   const labels = { complete: 'Complete evidence', partial: 'Partial evidence', insufficient_data: 'Insufficient data' };
   return <StatusBadge tone={status === 'complete' ? 'info' : status === 'partial' ? 'warning' : 'neutral'}>{labels[status]}</StatusBadge>;
 }

@@ -1,24 +1,18 @@
+import { SignalAvailability } from "../components/SignalAvailability";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import type { RadarItem } from '../types/api';
 import { fetchRadar, usingResearchMocks } from "../api/client";
 import { useResource } from '../hooks/useResource';
-import { rankRadar, numeric } from '../components/ResearchStates';
+import { rankRadar, numeric, type RadarSortKey } from '../components/ResearchStates';
 import {
   AppShell,
   PageContainer,
   ProductHeader,
-  ScoreStatusBadge,
   PanelSkeleton,
   StateMessage,
 } from "../components";
 
-function radarScore(value: number | null | undefined) {
-  return value == null || !Number.isFinite(value) ? numeric(value) : value.toFixed(2);
-}
-
-type SortKey = 'default' | 'company' | 'status' | 'anomaly' | 'activity' | 'dislocation' | 'model_prob' | 'priority';
-const sortOptions: { key: SortKey; label: string }[] = [
+const sortOptions: { key: RadarSortKey; label: string }[] = [
   { key: 'default', label: 'Default (Ranked Priority)' },
   { key: 'company', label: 'Company (A to Z)' },
   { key: 'status', label: 'Status Completeness' },
@@ -28,30 +22,11 @@ const sortOptions: { key: SortKey; label: string }[] = [
   { key: 'model_prob', label: 'Model Probability (High to Low)' },
   { key: 'priority', label: 'Research Priority Score (High to Low)' },
 ];
-const metricFields = {
-  anomaly: 'anomaly_score', activity: 'activity_score', dislocation: 'dislocation_score',
-  model_prob: 'ml_outperformance_probability', priority: 'insider_edge_score',
-} as const;
-
-function compareRadar(a: RadarItem, b: RadarItem, key: SortKey) {
-  if (key === 'default') return 0;
-  if (key === 'company') return a.ticker.localeCompare(b.ticker, 'en', { sensitivity: 'base' });
-  if (key === 'status') {
-    const completeness = (status: string) => status === 'complete' ? 2 : status === 'partial' ? 1 : 0;
-    return completeness(b.score_status) - completeness(a.score_status);
-  }
-  const left = a[metricFields[key]], right = b[metricFields[key]];
-  const leftValid = typeof left === 'number' && Number.isFinite(left);
-  const rightValid = typeof right === 'number' && Number.isFinite(right);
-  if (!leftValid) return rightValid ? 1 : 0;
-  if (!rightValid) return -1;
-  return right - left;
-}
-
 export default function RadarPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('default');
+  const [sortKey, setSortKey] = useState<RadarSortKey>('default');
+  const [direction, setDirection] = useState<'asc' | 'desc'>('desc');
   const [sortOpen, setSortOpen] = useState(false);
   const sortContainer = useRef<HTMLDivElement>(null);
   const sortTrigger = useRef<HTMLButtonElement>(null);
@@ -59,10 +34,7 @@ export default function RadarPage() {
   const resource = useResource('radar', fetchRadar);
   const { loading, error, retry } = resource;
   const data = rankRadar(resource.data?.items || []);
-  const filter = query.trim().toLowerCase();
-  const filteredData = data.filter((item) =>
-    item.ticker.toLowerCase().includes(filter) || item.company_name.toLowerCase().includes(filter),
-  ).sort((a, b) => compareRadar(a, b, sortKey));
+  const filteredData = rankRadar(data, { query, sortKey, direction });
 
   useEffect(() => {
     if (!sortOpen) return;
@@ -190,6 +162,7 @@ return (
                         aria-checked={sortKey === option.key}
                         onClick={() => {
                           setSortKey(option.key);
+                          setDirection(option.key === 'company' ? 'asc' : 'desc');
                           setSortOpen(false);
                           sortTrigger.current?.focus();
                         }}>
@@ -200,6 +173,11 @@ return (
                   </div>
                 )}
               </div>
+              {sortKey !== 'default' && <button className="ie-button" type="button"
+                aria-label={`Sort direction: ${direction === 'asc' ? 'ascending' : 'descending'}`}
+                onClick={() => setDirection(value => value === 'asc' ? 'desc' : 'asc')}>
+                {direction === 'asc' ? 'Ascending' : 'Descending'}
+              </button>}
             </div>
             {query.trim() && (
               <span
@@ -275,22 +253,22 @@ return (
                   </td>
                   <td>{item.insider_signal_summary || "—"}</td>
                   <td>
-                    <ScoreStatusBadge status={item.score_status} />
+                    <SignalAvailability evidence={item} />
                   </td>
                   <td className="ie-number">
-                    {radarScore(item.anomaly_score)}
+                    {numeric(item.anomaly_score)}
                   </td>
                   <td className="ie-number">
-                    {radarScore(item.activity_score)}
+                    {numeric(item.activity_score)}
                   </td>
                   <td className="ie-number">
-                    {radarScore(item.dislocation_score)}
+                    {numeric(item.dislocation_score)}
                   </td>
                   <td className="ie-number">
                     {numeric(item.ml_outperformance_probability, true)}
                   </td>
                   <td className="ie-number ie-priority-column">
-                    <strong>{radarScore(item.insider_edge_score)}</strong>
+                    <strong>{numeric(item.insider_edge_score)}</strong>
                   </td>
                 </tr>
               ))}

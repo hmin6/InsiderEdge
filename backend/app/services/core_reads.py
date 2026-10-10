@@ -36,6 +36,7 @@ def radar_item(event, signal, company, frozen):
         statistical_score=signal.statistical_score if signal else None,
         dislocation_score=signal.dislocation_score if signal else None,
         ml_outperformance_probability=signal.model_probability if signal else None,
+        availability_status=signal.score_status if signal else 'not_scored',
         score_status=signal.score_status if signal else 'insufficient_data',
         unavailable_components=signal.unavailable_components if signal else ['A', 'C', 'M', 'S', 'D'],
     )

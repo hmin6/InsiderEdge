@@ -139,6 +139,7 @@ def test_unscored_latest_event_does_not_reuse_older_signal(setup):
     item = client.get('/api/radar').json()['items'][0]
     assert item['public_event_day'] == '2026-10-05' and item['insider_edge_score'] is None
     assert item['score_status'] == 'insufficient_data'
+    assert item['availability_status'] == 'not_scored'
     assert set(item['unavailable_components']) == {'A', 'C', 'M', 'S', 'D'}
 
 
@@ -310,16 +311,19 @@ def test_database_pool_reused_and_closed(monkeypatch, setup):
 def test_response_fields_nullability_and_enums_match_authoritative_contract(model):
     contract = (Path(__file__).resolve().parents[2] / 'docs/API_CONTRACT.md').read_text(encoding='utf-8')
     block = re.search(r'type ' + model.__name__ + r' = \{(.*?)\n\}', contract, re.S).group(1)
-    declarations = dict(re.findall(r'^\s*(\w+): (.+)$', block, re.M))
+    fields = re.findall(r'^\s*(\w+)(\?)?: (.+)$', block, re.M)
+    declarations = {name: declaration for name, _, declaration in fields}
+    required = {name for name, optional, _ in fields if not optional}
     schema = model.model_json_schema()
-    assert set(schema['properties']) == set(declarations) == set(schema['required'])
+    assert set(schema['properties']) == set(declarations)
+    assert set(schema['required']) == required
     for name, declaration in declarations.items():
         prop = schema['properties'][name]
         variants = prop.get('anyOf', [prop])
         assert any(value.get('type') == 'null' for value in variants) == ('null' in declaration)
         literals = re.findall(r'"([^"]+)"', declaration)
         if literals:
-            assert prop['enum'] == literals
+            assert next(value['enum'] for value in variants if 'enum' in value) == literals
 
 
 def test_invalid_persisted_signal_status_is_sanitized(setup):
@@ -336,3 +340,44 @@ def test_invalid_persisted_signal_status_is_sanitized(setup):
     assert response.status_code == 503
     assert response.json() == {'detail': 'Research data unavailable'}
     assert response.headers['access-control-allow-origin'] == 'http://localhost:5173'
+
+
+@pytest.mark.parametrize('stored_status', [None, 'insufficient_data', 'partial', 'complete'])
+def test_signal_availability_distinguishes_missing_from_persisted(setup, stored_status):
+    client, engine, _ = setup
+    seed(engine)
+    with Session(engine) as session, session.begin():
+        row = research()
+        session.add(row)
+        session.flush()
+        if stored_status:
+            session.add(Signal(signal_id='availability', research_event_id=row.research_event_id,
+                               ticker=row.ticker, public_event_day=row.public_event_day,
+                               insider_edge_score=None if stored_status == 'insufficient_data' else 42.125,
+                               anomaly_score=0, score_status=stored_status,
+                               unavailable_components=['C'] if stored_status == 'insufficient_data' else ['S'] if stored_status == 'partial' else []))
+    item = client.get('/api/radar').json()['items'][0]
+    assert item['availability_status'] == (stored_status or 'not_scored')
+    assert item['score_status'] == (stored_status or 'insufficient_data')
+    company = client.get('/api/companies/AAPL').json()
+    assert company['latest_public_event_day'] is not None
+    if stored_status:
+        assert company['latest_signal']['availability_status'] == stored_status
+        assert item['anomaly_score'] == 0
+        assert item['unavailable_components'] == company['latest_signal']['unavailable_components']
+    else:
+        assert company['latest_signal'] is None
+        assert all(item[key] is None for key in ('anomaly_score', 'activity_score', 'statistical_score', 'dislocation_score', 'ml_outperformance_probability', 'insider_edge_score'))
+    legacy = dict(item)
+    legacy.pop('availability_status')
+    assert RadarItem.model_validate(legacy).availability_status is None
+
+
+def test_explicit_null_availability_remains_backward_compatible():
+    item = RadarItem(ticker='TEST', company_name='Synthetic', sector=None,
+                     public_event_day='2026-10-09', insider_signal_summary=None,
+                     insider_edge_score=None, anomaly_score=None, activity_score=None,
+                     statistical_score=None, dislocation_score=None,
+                     ml_outperformance_probability=None, score_status='insufficient_data',
+                     unavailable_components=[], availability_status=None)
+    assert item.model_dump()['availability_status'] is None

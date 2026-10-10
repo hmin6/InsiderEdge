@@ -51,8 +51,20 @@ type RadarItem = {
   ml_outperformance_probability: number | null
   score_status: "complete" | "partial" | "insufficient_data"
   unavailable_components: string[]
+  availability_status?: "not_scored" | "complete" | "partial" | "insufficient_data" | null
 }
 ```
+
+`availability_status` is an additive read-model field emitted by current servers.
+`not_scored` means the latest event has no exact matching persisted Signal; the other
+values copy the persisted Signal status. It does not assert why scoring has not run.
+Older payloads may omit it (or deserialize as null); consumers then use legacy
+`score_status` without inferring that a Signal exists. The legacy `score_status`
+and `unavailable_components` fallback remain unchanged for compatibility, but when
+`availability_status = "not_scored"`, the component list is not evidence of evaluated
+failures and must not be presented that way. Company responses retain
+`latest_signal: null` for an unscored latest event; no event remains distinguished
+by `latest_public_event_day: null`. No persisted schema or scoring policy changes.
 
 Default frontend order: descending `insider_edge_score`, with unavailable scores handled explicitly rather than coerced to zero.
 

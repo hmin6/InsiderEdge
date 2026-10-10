@@ -68,3 +68,14 @@ test("invalid numeric input does not produce NaN or misleading filled bars", () 
   assert.doesNotMatch(html, /NaN|Infinity/);
   assert.equal((html.match(/class="ie-score-bar"/g) ?? []).length, 2);
 });
+
+
+test("two-decimal formatting preserves styled card and probability scale", () => {
+  const input = { ...evidence, insider_edge_score: 100, ml_outperformance_probability: .783456 };
+  const html = renderToStaticMarkup(<InsiderEdgeScore evidence={input} />);
+  assert.match(html, />100.00<\/strong>/);
+  assert.match(html, />78.35<\/strong>/);
+  assert.match(html, /class="ie-score-headline"/);
+  assert.match(html, /class="ie-score-components"/);
+  assert.equal(input.ml_outperformance_probability, .783456);
+});
