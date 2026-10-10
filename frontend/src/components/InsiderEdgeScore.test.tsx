@@ -11,10 +11,10 @@ const evidence: ScoreEvidence = {
 };
 test('preserves backend overall score independently of component values', () => {
   const html = renderToStaticMarkup(<InsiderEdgeScore evidence={evidence} />);
-  assert.match(html, /73.125 out of 100/);
-  assert.match(html, />73.125<\/strong>/);
+  assert.match(html, /73.13 out of 100/);
+  assert.match(html, />73.13<\/strong>/);
   assert.match(html, /Research Priority/);
-  assert.match(html, />75<\/strong>/);
+  assert.match(html, />75.00<\/strong>/);
   assert.match(html, /% probability/);
   assert.match(html, /Complete evidence/);
 });
@@ -22,10 +22,10 @@ test('partial score preserves null and explicit zero distinctly', () => {
   const html = renderToStaticMarkup(<InsiderEdgeScore evidence={{ ...evidence, statistical_score: null, score_status: 'partial' }} />);
   assert.match(html, /Partial evidence/);
   assert.match(html, /Some evidence is unavailable/);
-  assert.match(html, />0<\/strong>/);
+  assert.match(html, />0.00<\/strong>/);
   assert.match(html, /Unavailable/);
   assert.equal((html.match(/class="ie-score-bar"/g) ?? []).length, 4);
-  assert.match(html, />73.125<\/strong>/);
+  assert.match(html, />73.13<\/strong>/);
 });
 test('missing overall score is unavailable and never synthesized', () => {
   const html = renderToStaticMarkup(<InsiderEdgeScore evidence={{ ...evidence, insider_edge_score: null, score_status: 'insufficient_data' }} />);
