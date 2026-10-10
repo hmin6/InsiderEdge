@@ -1,10 +1,11 @@
-:root {
+:root, :root[data-theme="dark"] {
   color-scheme: dark;
   
   /* Deep institutional terminal backgrounds */
   --ie-nav: #090e17;
   --ie-workspace: #0d131f;
   --ie-surface: #151c2c;
+  --ie-panel: rgba(21, 28, 44, 0.7);
   
   /* High-contrast text & borders */
   --ie-text: #f1f5f9;
@@ -33,6 +34,21 @@
   --ie-duration-slow: 400ms;
   --ie-ease: cubic-bezier(.2, .8, .2, 1);
   --ie-font: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ie-workspace: #f8fafc;
+  --ie-nav: #0f172a;
+  --ie-surface: #ffffff;
+  --ie-text: #0f172a;
+  --ie-muted: #64748b;
+  --ie-border: rgba(0, 0, 0, 0.1);
+  --ie-panel: rgba(255, 255, 255, 0.85);
+  --ie-primary: #1d4ed8;
+  --ie-primary-hover: #1e40af;
+  --ie-focus: #1d4ed8;
+  --ie-shadow: 0 8px 30px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 @media (prefers-reduced-motion: reduce) {
