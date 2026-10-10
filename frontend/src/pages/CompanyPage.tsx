@@ -70,14 +70,6 @@ function CompanyResearch({ ticker }: { ticker: string }) {
   );
 
   const data = company.data;
-  const navigation = [
-    { label: "Radar", href: "/" },
-    {
-      label: "Company",
-      href: `/company/${encodeURIComponent(ticker)}`,
-      current: true,
-    },
-  ];
   const retry = (action: () => void) => (
     <button className="ie-button" onClick={action}>
       Retry
@@ -86,7 +78,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
   const eventKey = data?.latest_public_event_day || "no-event";
 
   return (
-    <AppShell navigation={navigation}>
+    <AppShell navigation={[]}>
       <PageContainer className="ie-reveal">
         <ProductHeader
           title={
