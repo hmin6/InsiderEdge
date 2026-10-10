@@ -80,14 +80,18 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
             ]}
             labelFormatter={(label) => `Date: ${label}`}
             contentStyle={{
+              backgroundColor:
+                "var(--ie-nav)",
               borderRadius: "8px",
               border: "1px solid var(--ie-border)",
               boxShadow: "var(--ie-shadow)",
               padding: "12px",
+              color: "#ffffff" /* White text */,
             }}
+            itemStyle={{ color: "#ffffff", fontWeight: 600 }}
             labelStyle={{
               fontWeight: 600,
-              color: "var(--ie-text)",
+              color: "var(--ie-muted)",
               marginBottom: "4px",
             }}
           />
