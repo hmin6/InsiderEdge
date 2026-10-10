@@ -28,6 +28,9 @@ INSIDER_FEATURES = (
     "has_cfo", "has_director", "purchase_value_7d", "purchase_value_30d",
     "recent_purchase_rate", "historical_purchase_rate",
 )
+BINARY_FEATURES = frozenset({
+    "any_new_position_flag", "has_executive", "has_cfo", "has_director",
+})
 FEATURE_GROUPS = {
     "market": MARKET_FEATURES, "insider": INSIDER_FEATURES,
     "buyers": BUYER_FEATURES, "categories": ("sector", "role_bucket"),
@@ -236,7 +239,7 @@ def prepare_inference_features(events: pd.DataFrame, event_features: pd.DataFram
                     value = sources.at[event_id, name] if name in sources else None
                     if name not in ('sector', 'role_bucket') and not pd.isna(value):
                         try:
-                            valid = not isinstance(value, (bool, np.bool_)) and np.isfinite(float(value))
+                            valid = (name in BINARY_FEATURES or not isinstance(value, (bool, np.bool_))) and np.isfinite(float(value))
                         except (ValueError, TypeError, OverflowError):
                             valid = False
                         if not valid:

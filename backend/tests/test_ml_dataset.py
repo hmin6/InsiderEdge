@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.ml.dataset import FEATURE_COLUMNS, FEATURE_GROUPS, build_ml_dataset, build_outperformance_labels
+from app.ml.dataset import FEATURE_COLUMNS, FEATURE_GROUPS, build_ml_dataset, build_outperformance_labels, prepare_inference_features
 
 
 def label_fixture():
@@ -200,3 +200,63 @@ def test_empty_assembled_dataset_can_be_split():
     result = split_temporally(dataset)
     assert dataset.features.empty and result.audit.empty
     assert result.summary.sample_count.sum() == 0
+
+
+@pytest.mark.parametrize("name", ["any_new_position_flag", "has_executive", "has_cfo", "has_director"])
+@pytest.mark.parametrize("value", [True, False, np.bool_(True), np.bool_(False)])
+def test_strict_inference_binary_flags_match_training_and_numeric_inputs(name, value):
+    events, features, labels, provenance = dataset_inputs()
+    features[name] = pd.Series([value], dtype=object)
+    _, actual, availability = prepare_inference_features(events, features, provenance)
+    training = build_ml_dataset(events, features, labels, provenance)
+    pd.testing.assert_frame_equal(actual, training.features)
+    assert actual.loc["event:0", name] == float(value)
+    assert availability.loc["event:0", name] == []
+    assert actual.columns.tolist() == list(FEATURE_COLUMNS)
+    features[name] = float(value)
+    _, expected, _ = prepare_inference_features(events, features, provenance)
+    pd.testing.assert_frame_equal(actual, expected)
+
+
+@pytest.mark.parametrize("name", ["prior_return_5d", "aggregate_purchase_value", "unique_buyers_30d"])
+@pytest.mark.parametrize("value", [True, False, np.bool_(True)])
+def test_strict_inference_still_rejects_continuous_boolean(name, value):
+    events, features, _, provenance = dataset_inputs()
+    features[name] = pd.Series([value], dtype=object)
+    with pytest.raises(ValueError, match="invalid numeric feature"):
+        prepare_inference_features(events, features, provenance)
+
+
+@pytest.mark.parametrize("value", [None, pd.NA, np.nan])
+def test_strict_inference_binary_missing_values_remain_missing(value):
+    events, features, _, provenance = dataset_inputs()
+    features["any_new_position_flag"] = pd.Series([value], dtype=object)
+    _, actual, availability = prepare_inference_features(events, features, provenance)
+    assert pd.isna(actual.loc["event:0", "any_new_position_flag"])
+    assert availability.loc["event:0", "any_new_position_flag"] == ["missing_or_invalid_feature"]
+
+
+@pytest.mark.parametrize("value", [np.inf, -np.inf, "invalid", object()])
+def test_strict_inference_binary_invalid_values_remain_rejected(value):
+    events, features, _, provenance = dataset_inputs()
+    features["has_cfo"] = pd.Series([value], dtype=object)
+    with pytest.raises(ValueError, match="invalid numeric feature"):
+        prepare_inference_features(events, features, provenance)
+
+
+@pytest.mark.parametrize("failure", ["future", "unverified", "canonical_buyer"])
+def test_binary_flags_do_not_bypass_provenance_checks(failure):
+    events, features, _, provenance = dataset_inputs()
+    for name in ("any_new_position_flag", "has_executive", "has_cfo", "has_director"):
+        features[name] = True
+    if failure == "future":
+        provenance.loc[provenance.feature_group.eq("market"), "source_date"] = events.loc[0, "information_date"]
+        message = "future feature source"
+    elif failure == "unverified":
+        provenance.loc[provenance.feature_group.eq("insider"), "verified"] = False
+        message = "invalid provenance"
+    else:
+        provenance.loc[provenance.feature_group.eq("buyers"), "canonical_identity_verified"] = False
+        message = "unverified canonical buyer"
+    with pytest.raises(ValueError, match=message):
+        prepare_inference_features(events, features, provenance)

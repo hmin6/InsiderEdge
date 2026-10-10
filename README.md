@@ -23,9 +23,9 @@ Its differentiation is this integrated, inspectable workflow—not exclusive acc
 
 ### Current demo status
 
-Production deployment and core API, explanation, and audio smoke checks have passed. The configured Tiger database still has limited historical coverage; CRM is a small smoke sample with a research event but no persisted Signal. Unavailable quantitative outputs for that sample are expected.
+Issue #35 prepared real historical data, resolved the approved Decimal/Boolean integration bugs, and persisted 39 post-selection Signals, including 14 complete research-priority scores. AXP is the completeness-selected demo company; its local and production read endpoints, production chart, and direct refresh have passed verification. Final live Gemini explanation and ElevenLabs audio verification passed with exactly one authorized request to each provider. Held-out API metrics remain unavailable. See [the verified demo state and remaining checks](docs/DEMO_PLAN.md).
 
-**Issue #35 owns historical-data preparation, populated-event validation, and final demo-ticker selection.** This README does not claim that every event is fully scored or that a final demo company has been selected.
+**Issue #35 owns historical-data preparation, populated-event validation, and final demo-ticker selection.** AXP is selected by evidence completeness; this README does not claim that every event is fully scored.
 
 ## Data and the information boundary
 
