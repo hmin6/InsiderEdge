@@ -4,7 +4,7 @@ InsiderEdge turns public SEC insider transactions into a statistically validated
 
 **Higher research priority means a reason to investigate—not a buy/sell recommendation, investment advice, or evidence that insider purchases cause future returns.**
 
-[Live application](https://insider-edge-omega.vercel.app) · [Backend](https://insideredge-api.onrender.com) · [Interactive API docs](https://insideredge-api.onrender.com/docs) · [Methodology](docs/MODEL_SPEC.md)
+[Live application](https://insideredge.work) · [Fallback](https://insider-edge-omega.vercel.app) · [Backend](https://insideredge-api.onrender.com) · [Interactive API docs](https://insideredge-api.onrender.com/docs) · [Methodology](docs/MODEL_SPEC.md)
 
 ## Why InsiderEdge
 
@@ -220,7 +220,8 @@ Normal automated tests use synthetic data/mocked providers; they do not require 
 
 ## Production
 
-- **Frontend:** [insider-edge-omega.vercel.app](https://insider-edge-omega.vercel.app), Vercel root `frontend`, Vite build and SPA fallback.
+- **Primary frontend:** [insideredge.work](https://insideredge.work), hosted on Vercel with root `frontend`, Vite build and SPA fallback. `www.insideredge.work` redirects to the apex with HTTP 308.
+- **Fallback frontend:** [insider-edge-omega.vercel.app](https://insider-edge-omega.vercel.app).
 - **Backend:** [insideredge-api.onrender.com](https://insideredge-api.onrender.com), Render root at the repository; build `pip install -r backend/requirements.txt`, start `cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
 - **Database:** Tiger Cloud PostgreSQL; credentials remain server-side. Explicit-origin CORS connects the frontend to the API. Startup performs no automatic ingestion, training, or destructive database initialization.
 
