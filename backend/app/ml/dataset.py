@@ -160,25 +160,19 @@ def build_outperformance_labels(
     return result
 
 
-def build_ml_dataset(events: pd.DataFrame, event_features: pd.DataFrame,
-                     labels: pd.DataFrame, feature_provenance: pd.DataFrame) -> MLDataset:
-    """Assemble explicit raw predictors; silently injected extra columns never enter X.
+def prepare_inference_features(events: pd.DataFrame, event_features: pd.DataFrame,
+                               feature_provenance: pd.DataFrame, *, strict: bool = True) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Return metadata, allowed X and availability without requiring labels.
 
-    Features/labels must each cover all events exactly once. Provenance is long
-    format: event ID, feature_group (market/insider/buyers/categories),
-    source_date (latest source availability), verified (boolean). Buyers also
-    require canonical_identity_verified=True. Market dates must be strictly
-    before information_date; other groups may equal it. Verified future dates
-    and unverified future dates both raise. Missing groups, dates or verification
-    mask the entire group. Provenance is an upstream attestation, not inferred
-    from a feature value. Sector and role remain unencoded categorical values.
+    Same information-time rules as training. Strict production mode rejects
+    invalid provenance/available numeric values; training retains its existing
+    missing-group masking behavior. Provenance remains a trusted attestation.
+    Extra raw columns are excluded from X, including outcomes and identifiers.
     """
     metadata = _events(events)
-    for frame, name in ((event_features, "event_features"), (labels, "labels")):
-        _ids(frame, name, metadata.index, complete=True)
-    required_labels = ("Y", "outcome_end", "observation_cutoff", "label_status", "missing_reasons")
-    if not set(required_labels).issubset(labels):
-        raise ValueError(f"labels missing columns: {sorted(set(required_labels) - set(labels.columns))}")
+    _ids(event_features, "event_features", metadata.index, complete=True)
+    if event_features.columns.has_duplicates:
+        raise ValueError("duplicate feature columns")
     required_provenance = {KEY, "feature_group", "source_date", "verified"}
     if not required_provenance.issubset(feature_provenance):
         raise ValueError(f"feature_provenance missing columns: {sorted(required_provenance - set(feature_provenance.columns))}")
@@ -225,6 +219,52 @@ def build_ml_dataset(events: pd.DataFrame, event_features: pd.DataFrame,
     for name in ("sector", "role_bucket"):
         features[name] = features[name].astype("string")
     availability["feature_status"] = ["complete" if all(not reasons for reasons in row) else "partial" for row in availability.itertuples(index=False, name=None)]
+    if strict:
+        for field in ('ticker', 'information_date', 'public_event_day'):
+            if field in sources:
+                values = sources[field] if field == 'ticker' else _normalized_dates(sources[field])
+                if values.isna().any() or not values.eq(metadata[field]).fillna(False).all():
+                    raise ValueError(f'feature metadata mismatch: {field}')
+        for event_id in metadata.index:
+            for group in FEATURE_GROUPS:
+                record = records.get((event_id, group))
+                if record is None or pd.isna(record['source_date']) or record['verified'] is not True:
+                    raise ValueError(f'invalid provenance for {event_id}/{group}')
+                if group == 'buyers' and record.get('canonical_identity_verified') is not True:
+                    raise ValueError(f'unverified canonical buyer identities for {event_id}')
+                for name in FEATURE_GROUPS[group]:
+                    value = sources.at[event_id, name] if name in sources else None
+                    if name not in ('sector', 'role_bucket') and not pd.isna(value):
+                        try:
+                            valid = not isinstance(value, (bool, np.bool_)) and np.isfinite(float(value))
+                        except (ValueError, TypeError, OverflowError):
+                            valid = False
+                        if not valid:
+                            raise ValueError(f'invalid numeric feature {event_id}/{name}')
+    return metadata, features, availability
+
+
+def build_ml_dataset(events: pd.DataFrame, event_features: pd.DataFrame,
+                     labels: pd.DataFrame, feature_provenance: pd.DataFrame) -> MLDataset:
+    """Assemble explicit raw predictors; silently injected extra columns never enter X.
+
+    Features/labels must each cover all events exactly once. Provenance is long
+    format: event ID, feature_group (market/insider/buyers/categories),
+    source_date (latest source availability), verified (boolean). Buyers also
+    require canonical_identity_verified=True. Market dates must be strictly
+    before information_date; other groups may equal it. Verified future dates
+    and unverified future dates both raise. Missing groups, dates or verification
+    mask the entire group. Provenance is an upstream attestation, not inferred
+    from a feature value. Sector and role remain unencoded categorical values.
+    """
+    metadata = _events(events)
+    for frame, name in ((event_features, "event_features"), (labels, "labels")):
+        _ids(frame, name, metadata.index, complete=True)
+    required_labels = ("Y", "outcome_end", "observation_cutoff", "label_status", "missing_reasons")
+    if not set(required_labels).issubset(labels):
+        raise ValueError(f"labels missing columns: {sorted(set(required_labels) - set(labels.columns))}")
+    metadata, features, availability = prepare_inference_features(
+        events, event_features, feature_provenance, strict=False)
     targets = labels.set_index(KEY).reindex(metadata.index).loc[:, list(required_labels)].copy()
     for name in ("outcome_end", "observation_cutoff"):
         targets[name] = _normalized_dates(targets[name])
