@@ -3,7 +3,8 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { Link, useNavigate } from "react-router-dom";
 import { fetchRadar, usingResearchMocks } from "../api/client";
 import { useResource } from '../hooks/useResource';
-import { rankRadar, numeric, type RadarSortKey } from '../components/ResearchStates';
+import { rankRadar, numeric } from '../components/ResearchStates';
+import type { RadarItem } from '../types/api';
 import {
   AppShell,
   PageContainer,
@@ -11,10 +12,6 @@ import {
   PanelSkeleton,
   StateMessage,
 } from "../components";
-
-function radarScore(value: number | null | undefined) {
-  return value == null || !Number.isFinite(value) ? numeric(value) : value.toFixed(2);
-}
 
 type SortField = 'default' | 'company' | 'status' | 'anomaly' | 'activity' | 'dislocation' | 'model_prob' | 'priority';
 type SortDirection = 'none' | 'asc' | 'desc';
@@ -289,11 +286,6 @@ return (
                   </div>
                 )}
               </div>
-              {sortKey !== 'default' && <button className="ie-button" type="button"
-                aria-label={`Sort direction: ${direction === 'asc' ? 'ascending' : 'descending'}`}
-                onClick={() => setDirection(value => value === 'asc' ? 'desc' : 'asc')}>
-                {direction === 'asc' ? 'Ascending' : 'Descending'}
-              </button>}
             </div>
             {query.trim() && (
               <span
