@@ -919,7 +919,8 @@ h3 {
   transition: opacity 150ms ease;
 }
 
-.ie-brief-header-spacer {
+.ie-brief-header-spacer,
+.ie-ai-header-spacer {
   display: inline-flex;
   align-items: center;
   border: 1px solid transparent;
@@ -931,6 +932,11 @@ h3 {
   visibility: hidden;
 }
 .ie-brief-header-spacer::before { content: 'P1 · Optional'; }
+.ie-ai-header-spacer::before { content: 'AI interpretation'; }
+.ie-ai-review-spacer { visibility: hidden; }
+.ie-ai-review-spacer::before {
+  content: 'For research review only. Compare the explanation with the quantitative evidence above.';
+}
 
 .ie-radar-search-controls
   input[type="search"]::-webkit-search-cancel-button:hover {
