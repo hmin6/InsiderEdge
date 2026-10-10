@@ -519,3 +519,53 @@ def test_grounded_date_then_real_rejection_diagnostic(monkeypatch, caplog):
     assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'unavailable'
     assert 'rejected_token=98765 token_kind=integer' in caplog.text
     assert 'rejected_token=2026' not in caplog.text and '99999' not in caplog.text
+
+
+
+def test_date_component_source_uses_validator_match_spans():
+    from app.services.snowflake_research import numeric_matches, numeric_source, numeric_tokens
+    text = 'PRIVATE_PREFIX 2026-08-14 PRIVATE_SUFFIX 2026'
+    matches = numeric_matches(text)
+    date = matches[0]
+    assert date.group(0) == '2026-08-14'
+    assert numeric_source(matches, date.start(), date.start() + 4) == ('date_component', '2026-08-14')
+    year = matches[1]
+    assert numeric_source(matches, year.start(), year.end()) == ('standalone', None)
+    assert numeric_tokens('2026-08-14', require_complete=True) == {'2026-08-14'}
+
+
+@pytest.mark.parametrize('numeric,source,date', [
+    ('2026', 'standalone', None),
+    ('2026-08-15', 'date_component', '2026-08-15'),
+    ('2025-08-14', 'date_component', '2025-08-14'),
+])
+def test_numeric_source_logging_is_safe_and_response_unchanged(monkeypatch, caplog, numeric, source, date):
+    import logging
+    configure(monkeypatch)
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        f'PRIVATE_PREFIX {numeric} PRIVATE_SUFFIX']}, ''), 'application/json'
+    result = research(BRK_DATE_EVIDENCE, SnowflakeProvider())
+    assert result.status == 'unavailable' and result.context is None and result.model is None
+    assert f'rejected_token={numeric}' in caplog.text
+    assert f'token_source={source}' in caplog.text
+    if date:
+        assert f'containing_date={date}' in caplog.text and len(date) == 10
+    else:
+        assert 'containing_date=' not in caplog.text
+    for forbidden in ('PRIVATE_PREFIX', 'PRIVATE_SUFFIX', 'synthetic-test-token', 'Authorization',
+                      'Use only supplied evidence', 'event_context'):
+        assert forbidden not in caplog.text
+    assert all(r.exc_info is None for r in caplog.records)
+    assert 'token_source' not in result.model_dump_json()
+    assert 'containing_date' not in result.model_dump_json()
+
+
+def test_grounded_brk_dates_never_emit_year_source_diagnostic(monkeypatch, caplog):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        'Review 2026-08-14, 2026-08-13 and 2026-08-12.']}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'available'
+    assert 'rejected_token=2026' not in caplog.text and 'token_source' not in caplog.text
