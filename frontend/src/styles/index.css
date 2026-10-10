@@ -620,4 +620,39 @@ h3 {
 .ie-radar-filter-count {
   font-size: 0.75rem;
   color: #94a3b8;
+
+.ie-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--ie-space-3);
+  margin-top: var(--ie-space-3);
+}
+.ie-metric-card {
+  background: var(--ie-workspace);
+  padding: var(--ie-space-4);
+  border-radius: 8px;
+  border: 1px solid var(--ie-border);
+  transition:
+    transform var(--ie-duration-fast),
+    border-color var(--ie-duration-fast),
+    box-shadow var(--ie-duration-fast);
+}
+.ie-metric-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--ie-primary);
+  box-shadow: var(--ie-shadow);
+}
+.ie-metric-label {
+  font-size: 12px;
+  color: var(--ie-muted);
+  margin-bottom: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.ie-metric-value {
+  font-size: 20px;
+  font-weight: 650;
+  color: var(--ie-text);
+  font-variant-numeric: tabular-nums;
 }

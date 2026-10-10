@@ -1,3 +1,4 @@
+import { formatNumber, formatFractionPercent, formatCount, formatPValue } from '../utils/format';
 import type { CompanyResponse, RadarItem } from '../types/api';
 import type { StatisticsResponse, PredictionResponse } from '../types/research';
 import { Panel, StateMessage } from './ui';
@@ -10,7 +11,7 @@ export function rankRadar(items: RadarItem[]) {
   });
 }
 export function numeric(value: number | null | undefined, percent = false) {
-  return value == null || !Number.isFinite(value) ? 'Unavailable' : percent ? `${(value * 100).toFixed(2)}%` : String(value);
+  return percent ? formatFractionPercent(value) : formatNumber(value);
 }
 function Metrics({ values }: { values: [string, string][] }) {
   return <dl className="ie-metric-grid">{values.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>;
@@ -32,12 +33,12 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
       <Metrics values={[
         ['Mahalanobis distance', numeric(data.anomaly.mahalanobis_distance)],
         ['Anomaly reference population', data.anomaly.reference_population ?? 'Unavailable'],
-        ['Anomaly reference count', numeric(data.anomaly.reference_count)],
+        ['Anomaly reference count', formatCount(data.anomaly.reference_count)],
         ['Anomaly status', data.anomaly.status],
         ['Recent purchase rate (events/day)', numeric(data.activity.recent_purchase_rate)],
         ['Historical purchase rate (events/day)', numeric(data.activity.historical_purchase_rate)],
         ['Purchase rate ratio', numeric(data.activity.rate_ratio)],
-        ['Supported buyers (30 days)', numeric(data.activity.buyers_30d)],
+        ['Supported buyers (30 days)', formatCount(data.activity.buyers_30d)],
         ['Activity reference population', data.activity.reference_population ?? 'Unavailable'],
         ['Activity status', data.activity.status],
       ]} />
@@ -57,9 +58,9 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
       <p className="ie-muted">Event-study status: {data.event_study.status}</p>
       {(data.event_study.car30 === null || data.event_study.car90 === null) && <p className="ie-muted">Unavailable horizons may need more completed trading sessions or estimation history. Future CAR is not yet known.</p>}
       {data.event_study.status !== 'complete' && <p className="ie-muted">Event-study evidence is incomplete or has insufficient estimation history.</p>}
-      <p>Comparable events: {numeric(v.comparable_event_count)} · Mean CAR30: {numeric(v.mean_car30, true)}</p>
+      <p>Comparable events: {formatCount(v.comparable_event_count)} · Mean CAR30: {numeric(v.mean_car30, true)}</p>
       <p>95% bootstrap interval: {v.bootstrap_ci_95 ? `${numeric(v.bootstrap_ci_95.lower, true)} to ${numeric(v.bootstrap_ci_95.upper, true)}` : 'Unavailable'}</p>
-      <p>Randomization p-value: {numeric(v.randomization_p_value)}</p>
+      <p>Randomization p-value: {formatPValue(v.randomization_p_value)}</p>
       <p>Statistical score: {numeric(v.statistical_score)} · Status: {v.status}</p>
       <p className="ie-muted">{v.cohort_definition || 'Comparable-event cohort unavailable.'}</p>
       {v.statistical_score === null && <StateMessage title="Combined statistical score unavailable">Bootstrap and randomization evidence have separate availability. Any available comparable-event results remain visible above.</StateMessage>}
@@ -78,7 +79,7 @@ export function PredictionEvidence({ data }: { data: PredictionResponse }) {
         ['Held-out precision', numeric(data.metrics.precision, true)],
         ['Held-out recall', numeric(data.metrics.recall, true)],
         ['Held-out F1', numeric(data.metrics.f1)],
-        ['Held-out sample count', numeric(data.metrics.sample_count)],
+        ['Held-out sample count', formatCount(data.metrics.sample_count)],
         ['Held-out positive-class prevalence', numeric(data.metrics.positive_class_prevalence, true)],
         ['Held-out split start', data.metrics.split_start ?? 'Unavailable'],
         ['Held-out split end', data.metrics.split_end ?? 'Unavailable'],
