@@ -919,6 +919,19 @@ h3 {
   transition: opacity 150ms ease;
 }
 
+.ie-brief-header-spacer {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid transparent;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  white-space: normal;
+  visibility: hidden;
+}
+.ie-brief-header-spacer::before { content: 'P1 · Optional'; }
+
 .ie-radar-search-controls
   input[type="search"]::-webkit-search-cancel-button:hover {
   opacity: 1;
