@@ -488,7 +488,7 @@ def test_exact_brk_dates_are_atomic_and_grounded(monkeypatch, statement, caplog)
 
 
 @pytest.mark.parametrize('numeric', [
-    '2026-08-15', '2025-08-14', '2026-09-14', '2026', '08', '14',
+    '2026-08-15', '2025-08-14', '2026-09-14', '08', '14',
     '2026-8-14', '2026-08', '2026-08-14-01', '0000000001-26-000005',
     '$2026-08-14', '2026-08-14%', '2026-08-14 shares',
 ])
@@ -541,6 +541,8 @@ def test_date_component_source_uses_validator_match_spans():
 ])
 def test_numeric_source_logging_is_safe_and_response_unchanged(monkeypatch, caplog, numeric, source, date):
     import logging
+    # Exercise diagnostic plumbing independently of calendar-year acceptance.
+    monkeypatch.setattr('app.services.snowflake_research.grounded_year_reference', lambda *args: False)
     configure(monkeypatch)
     caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
     ai_providers.post.side_effect = None
@@ -590,7 +592,7 @@ def test_grounded_calendar_year_reference(monkeypatch, statement):
     'The score was 2026.', 'CAR30 was 2026.', 'IES was 2026.',
     'Review in 2026 shares.', 'Review during 2026 percent.',
     'Review 2026-08-15.', 'Review 2026-09-14.',
-    'Review accession 0000000001-26-000005.', 'Review 2026.',
+    'Review accession 0000000001-26-000005.',
 ])
 def test_year_abstraction_remains_fail_closed(monkeypatch, statement):
     configure(monkeypatch)
@@ -651,6 +653,8 @@ def test_fixed_year_context_categories(text, expected):
     ('PRIVATE_BEFORE price was 2026.', 'sentence_final'),
 ])
 def test_rejected_year_context_logs_only_fixed_metadata(monkeypatch, caplog, statement, expected):
+    # Exercise diagnostic plumbing independently of calendar-year acceptance.
+    monkeypatch.setattr('app.services.snowflake_research.grounded_year_reference', lambda *args: False)
     configure(monkeypatch)
     ai_providers.post.side_effect = None
     ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
@@ -698,6 +702,8 @@ def test_year_preceder_fixed_categories_and_precedence(prefix, expected):
     ('value of', 'numeric_claim_word'), ('PRIVATE_WORD', 'other'),
 ])
 def test_year_preceder_safe_logging_and_unchanged_rejection(monkeypatch, caplog, prefix, expected):
+    # Exercise diagnostic plumbing independently of calendar-year acceptance.
+    monkeypatch.setattr('app.services.snowflake_research.grounded_year_reference', lambda *args: False)
     configure(monkeypatch)
     ai_providers.post.side_effect = None
     ai_providers.post.return_value = body({**CONTENT, 'event_context': [
@@ -720,3 +726,39 @@ def test_ungrounded_year_has_no_preceder_diagnostic(monkeypatch, caplog):
     ai_providers.post.return_value = body({**CONTENT, 'event_context': ['Review year 2025.']}, ''), 'application/json'
     assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'unavailable'
     assert 'rejected_token=2025' in caplog.text and 'year_preceder=' not in caplog.text
+
+
+@pytest.mark.parametrize('statement', [
+    'The filing occurred in 2026.', 'The filing occurred during 2026.',
+    'Insider activity was reported in 2026.', 'This was a 2026 filing.',
+    'The transaction was disclosed for 2026.', 'Insider buying occurred in 2026.',
+    'The filing relates to calendar year 2026.',
+    'The disclosure belongs to 2026.', 'Review 2026.',
+    'Context for BRK.B. The disclosure belongs to 2026.',
+    'The price was unavailable. The filing belongs to 2026.',
+])
+def test_sentence_level_grounded_year_abstractions(monkeypatch, statement):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'available'
+
+
+@pytest.mark.parametrize('statement', [
+    'The price was 2026.', 'The value was 2026.', 'The amount was 2026.',
+    'The quantity was 2026.', 'The score was 2026.', 'The probability was 2026.',
+    'The return was 2026.', 'CAR30 was 2026.', '2026 shares were purchased.',
+    'The purchase price was 2026.', '$2026', '2026%',
+    'The insider bought 2026 shares.', 'The disclosure belongs to 2025.',
+    'The disclosure belongs to 2027.', 'The filing date is 2026-08-15.',
+    'The accession is 0000000001-26-000005.',
+    'The reported value was approximately 2026.',
+    'The quantity equals 2026.', 'The amount: 2026.',
+    '2026 was the reported value.', '2026 was the purchase price.',
+    '2026 is the score.',
+])
+def test_sentence_level_year_quantitative_claims_fail_closed(monkeypatch, statement):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'unavailable'
