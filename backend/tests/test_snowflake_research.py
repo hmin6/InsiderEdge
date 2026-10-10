@@ -672,3 +672,51 @@ def test_ungrounded_year_has_no_year_context(monkeypatch, caplog):
     assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'unavailable'
     assert 'rejected_token=2025' in caplog.text
     assert 'year_context=' not in caplog.text
+
+
+@pytest.mark.parametrize('prefix,expected', [
+    *[(word, word) for word in ('in', 'during', 'of', 'for', 'from', 'through',
+       'year', 'fiscal', 'calendar', 'filing', 'transaction', 'activity', 'event', 'dated')],
+    ('unknown', 'other'), ('', 'other'), ('DURING', 'during'),
+    *[(word, 'numeric_claim_word') for word in ('price', 'return', 'probability', 'score',
+       'CAR', 'CAR30', 'shares', 'quantity', 'amount', 'value', 'price was', 'value of',
+       'return for', 'score equals', 'probability is', 'quantity:', 'amount =')],
+])
+def test_year_preceder_fixed_categories_and_precedence(prefix, expected):
+    from app.services.snowflake_research import numeric_matches, rejected_year_preceder
+    text = f'{prefix} 2026.'
+    match = next(m for m in numeric_matches(text) if m.group(0) == '2026')
+    assert rejected_year_preceder(text, match, {'2026'}) == expected
+    assert rejected_year_preceder(text, match, {'2025'}) is None
+
+
+@pytest.mark.parametrize('prefix,expected', [
+    ('of', 'of'), ('for', 'for'), ('from', 'from'), ('through', 'through'),
+    ('year', 'year'), ('fiscal', 'fiscal'), ('calendar', 'calendar'),
+    ('filing', 'filing'), ('transaction', 'transaction'), ('activity', 'activity'),
+    ('event', 'event'), ('dated', 'dated'), ('price was', 'numeric_claim_word'),
+    ('value of', 'numeric_claim_word'), ('PRIVATE_WORD', 'other'),
+])
+def test_year_preceder_safe_logging_and_unchanged_rejection(monkeypatch, caplog, prefix, expected):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        f'PRIVATE_BEFORE {prefix} 2026.']}, ''), 'application/json'
+    result = research(BRK_DATE_EVIDENCE, SnowflakeProvider())
+    assert result.status == 'unavailable' and result.context is None
+    assert 'rejected_token=2026 token_kind=integer token_source=standalone' in caplog.text
+    assert f'year_preceder={expected}' in caplog.text
+    assert 'year_context=sentence_final' in caplog.text
+    for forbidden in ('PRIVATE_BEFORE', 'PRIVATE_WORD', 'synthetic-test-token', 'Authorization',
+                      'Use only supplied evidence', 'aggregate_purchase_value', 'event_context'):
+        assert forbidden not in caplog.text
+    assert all(record.exc_info is None for record in caplog.records)
+    assert 'year_preceder' not in result.model_dump_json()
+
+
+def test_ungrounded_year_has_no_preceder_diagnostic(monkeypatch, caplog):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': ['Review year 2025.']}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+    assert 'rejected_token=2025' in caplog.text and 'year_preceder=' not in caplog.text
