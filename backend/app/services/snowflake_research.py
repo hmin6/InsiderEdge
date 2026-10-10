@@ -4,6 +4,7 @@ import logging
 import os
 import re
 from decimal import Decimal
+from datetime import date
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
@@ -250,6 +251,52 @@ def rejected_year_preceder(text, match, grounded_years):
     return word if word in YEAR_PRECEDERS - {'numeric_claim_word', 'other'} else 'other'
 
 
+
+MONTH_NAMES = ('january', 'february', 'march', 'april', 'may', 'june',
+               'july', 'august', 'september', 'october', 'november', 'december')
+MONTH_NUMBERS = {name: number for number, full in enumerate(MONTH_NAMES, 1)
+                 for name in (full, full[:3])}
+MONTH_PATTERN = '(?:' + '|'.join(sorted(MONTH_NUMBERS, key=len, reverse=True)) + ')'
+HUMAN_DATE = re.compile(
+    r'(?<![\w$%])(?:'
+    r'(?P<month_first>' + MONTH_PATTERN + r')\s+(?P<day_after>[0-9]{1,2})'
+    r'|(?P<day_before>[0-9]{1,2})\s+(?P<month_last>' + MONTH_PATTERN + r'))'
+    r'(?:(?:,\s*|\s+)(?P<year>[0-9]{4})(?![\w/-]))?'
+    r'(?![\w%/-]|[.,]\d)', re.I)
+
+
+def grounded_iso_dates(serialized_evidence):
+    """Parse complete evidence dates; numeric components never enter the allowlist."""
+    dates = set()
+    for match in ISO_DATE_TOKEN.finditer(serialized_evidence):
+        try:
+            dates.add(date.fromisoformat(match.group(0)))
+        except ValueError:
+            continue
+    return dates
+
+
+def human_date_spans(text, grounded_dates):
+    """Bind neighboring month/day/year syntax as one grounded or rejected date."""
+    spans = []
+    for match in HUMAN_DATE.finditer(text):
+        month = MONTH_NUMBERS[(match.group('month_first') or match.group('month_last')).lower()]
+        day = int(match.group('day_after') or match.group('day_before'))
+        year = match.group('year')
+        grounded = any(value.month == month and value.day == day
+                       and (year is None or value.year == int(year)) for value in grounded_dates)
+        spans.append((match.start(), match.end(), grounded))
+    return spans
+
+
+def human_date_grounding(match, spans):
+    """None means ordinary numeric validation; False rejects an altered full date."""
+    for start, end, grounded in spans:
+        if start <= match.start() and match.end() <= end:
+            return grounded
+    return None
+
+
 def assemble(session, company):
     event = session.scalar(select(ResearchEvent).where(ResearchEvent.ticker == company.ticker)
                            .order_by(ResearchEvent.public_event_day.desc()).limit(1))
@@ -313,7 +360,8 @@ class SnowflakeProvider:
                                                reason_category='configuration_missing')
         serialized_evidence = json.dumps(evidence, allow_nan=False)
         grounded_numbers = numeric_tokens(serialized_evidence)
-        grounded_years = {match.group(0)[:4] for match in ISO_DATE_TOKEN.finditer(serialized_evidence)}
+        grounded_dates = grounded_iso_dates(serialized_evidence)
+        grounded_years = {str(value.year).zfill(4) for value in grounded_dates}
         body, mime = ai_providers.post(
             origin.rstrip('/') + '/api/v2/cortex/v1/chat/completions',
             {'Authorization': 'Bearer ' + token, 'Accept': 'application/json'},
@@ -343,9 +391,12 @@ class SnowflakeProvider:
                     category = 'numeric_grounding_rejected'
                     numeric_tokens(text, require_complete=True)
                     matches = numeric_matches(text)
+                    date_spans = human_date_spans(text, grounded_dates)
                     first = next((match for match in matches
-                                  if not numbers_grounded({match.group(0)}, grounded_numbers)
-                                  and not grounded_year_reference(text, match, grounded_years)), None)
+                                  if human_date_grounding(match, date_spans) is False
+                                  or (human_date_grounding(match, date_spans) is None
+                                      and not numbers_grounded({match.group(0)}, grounded_numbers)
+                                      and not grounded_year_reference(text, match, grounded_years))), None)
                     if first is not None:
                         raise NumericGroundingFailure(first.group(0), source=numeric_source(
                             matches, first.start(), first.end()),
