@@ -1,9 +1,3 @@
-import {
-  formatNumber,
-  formatFractionPercent,
-  formatCount,
-  formatPValue,
-} from "../utils/format";
 import type { CompanyResponse, RadarItem } from "../types/api";
 import type { StatisticsResponse, PredictionResponse } from "../types/research";
 import { Panel, StateMessage } from "./ui";
@@ -22,18 +16,6 @@ export function numeric(value: number | null | undefined, percent = false) {
     : percent
       ? `${(value * 100).toFixed(2)}%`
       : value.toFixed(1);
-}
-function Metrics({ values }: { values: [string, string][] }) {
-  return (
-    <dl className="ie-metric-grid">
-      {values.map(([label, value]) => (
-        <div key={label}>
-          <dt>{label}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
 }
 export function CompanyScore({ data }: { data: CompanyResponse }) {
   if (data.latest_signal)
