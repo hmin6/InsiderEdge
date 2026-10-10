@@ -1,5 +1,5 @@
 import { RadarResponse, CompanyResponse, PricesResponse, InsidersResponse } from "../types/api";
-import { DEV_MOCK_RADAR, DEV_MOCK_COMPANY, DEV_MOCK_PRICES, DEV_MOCK_INSIDERS } from "./mocks";
+import { DEV_MOCK_RADAR, DEV_MOCK_COMPANY, DEV_MOCK_PRICES, DEV_MOCK_INSIDERS, DEV_MOCK_STATISTICS, DEV_MOCK_PREDICTION } from "./mocks";
 import { ApiError, getJson } from './http';
 import type { StatisticsResponse, PredictionResponse } from '../types/research';
 

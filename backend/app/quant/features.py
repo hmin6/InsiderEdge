@@ -7,7 +7,7 @@ ETFs. This module computes pre-event features only; it does not train a model.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from math import log
 
 import numpy as np
@@ -27,6 +27,20 @@ def _valid_number(value: object) -> bool:
         return value is not None and bool(np.isfinite(float(value)))
     except (TypeError, ValueError):
         return False
+
+
+def _prepare_price_index(prices: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """Normalize and index valid prices once for repeated point-in-time lookups."""
+    price_rows = prices.copy()
+    price_rows["ticker"] = price_rows["ticker"].astype("string").str.upper()
+    price_rows["date"] = _date_series(price_rows["date"])
+    price_rows = price_rows.loc[
+        price_rows["date"].notna() & price_rows["analysis_price"].map(_valid_number)
+    ]
+    return {
+        ticker: rows.sort_values("date").reset_index(drop=True)
+        for ticker, rows in price_rows.groupby("ticker", sort=False)
+    }
 
 
 def _qualifying_mask(transactions: pd.DataFrame) -> pd.Series:
@@ -70,20 +84,22 @@ def _ownership_aggregate(rows: pd.DataFrame) -> tuple[float | None, bool | None]
 
 def _price_features(
     event: pd.Series,
-    prices: pd.DataFrame,
+    price_index: Mapping[str, pd.DataFrame],
     sector_etf_by_ticker: Mapping[str, str],
 ) -> dict[str, float | None]:
     ticker = str(event["ticker"]).upper()
     cutoff = pd.Timestamp(event["information_date"]).normalize()
-    history = prices.loc[
-        prices["ticker"].astype("string").str.upper().eq(ticker)
-        & prices["date"].lt(cutoff)
-    ].sort_values("date")
-    history = history.loc[history["analysis_price"].map(_valid_number)].tail(121)
+    ticker_prices = price_index.get(ticker)
+    if ticker_prices is None:
+        history = pd.DataFrame(columns=["date", "analysis_price"])
+    else:
+        end = int(np.searchsorted(ticker_prices["date"].to_numpy(), cutoff.to_datetime64(), side="left"))
+        history = ticker_prices.iloc[:end].tail(121)
     result: dict[str, float | None] = {
         "prior_return_5d": None,
         "prior_return_30d": None,
         "prior_return_90d": None,
+        "sector_return_90d": None,
         "prior_volatility_30d": None,
         "drawdown_90d": None,
         "volume_zscore_30d": None,
@@ -107,6 +123,17 @@ def _price_features(
         if peak > 0:
             result["drawdown_90d"] = float(trailing[-1] / peak - 1)
 
+        etf = sector_etf_by_ticker.get(ticker)
+        if etf:
+            stock_dates = history.tail(91)["date"]
+            benchmark_rows = price_index.get(etf)
+            aligned = (benchmark_rows.set_index("date")["analysis_price"].reindex(stock_dates).to_numpy()
+                       if benchmark_rows is not None else np.array([]))
+            if len(aligned) == 91 and np.all(np.isfinite(aligned)):
+                benchmark_prices = aligned.astype(float)
+                if benchmark_prices[0] > 0:
+                    result["sector_return_90d"] = float(benchmark_prices[-1] / benchmark_prices[0] - 1)
+
     if "volume" in history.columns and len(history) >= 31:
         volume = pd.to_numeric(history["volume"], errors="coerce").to_numpy(dtype=float)
         baseline, latest = volume[-31:-1], volume[-1]
@@ -122,13 +149,11 @@ def _price_features(
         stock_window = history.tail(31)
         stock_dates = stock_window["date"]
         for benchmark, feature in (("SPY", "spy_relative_return_30d"), (etf, "sector_relative_return_30d")):
-            benchmark_rows = prices.loc[
-                prices["ticker"].astype("string").str.upper().eq(benchmark.upper())
-                & prices["date"].isin(stock_dates)
-                & prices["analysis_price"].map(_valid_number)
-            ].sort_values("date")
-            if len(benchmark_rows) == 31 and benchmark_rows["date"].tolist() == stock_dates.tolist():
-                benchmark_prices = benchmark_rows["analysis_price"].astype(float).to_numpy()
+            benchmark_rows = price_index.get(benchmark.upper())
+            aligned = (benchmark_rows.set_index("date")["analysis_price"].reindex(stock_dates).to_numpy()
+                       if benchmark_rows is not None else np.array([]))
+            if len(aligned) == 31 and np.all(np.isfinite(aligned)):
+                benchmark_prices = aligned.astype(float)
                 if benchmark_prices[0] != 0:
                     benchmark_return = benchmark_prices[-1] / benchmark_prices[0] - 1
                     result[feature] = float(stock_return - benchmark_return)
@@ -183,9 +208,7 @@ def build_event_features(
     tx["_qualifies"] = _qualifying_mask(tx)
     tx = tx.loc[tx["_qualifies"]].copy()
 
-    price_rows = prices.copy()
-    price_rows["ticker"] = price_rows["ticker"].astype("string").str.upper()
-    price_rows["date"] = _date_series(price_rows["date"])
+    price_index = _prepare_price_index(prices)
     etf_map = {str(k).upper(): str(v).upper() for k, v in (sector_etf_by_ticker or {}).items()}
 
     transaction_feature_rows: list[dict[str, object]] = []
@@ -253,7 +276,7 @@ def build_event_features(
     transaction_features = pd.DataFrame(transaction_feature_rows)
     feature_rows: list[dict[str, object]] = []
     for _, event in events.iterrows():
-        feature_rows.append({EVENT_KEY: event[EVENT_KEY], **_price_features(event, price_rows, etf_map)})
+        feature_rows.append({EVENT_KEY: event[EVENT_KEY], **_price_features(event, price_index, etf_map)})
     market_features = pd.DataFrame(feature_rows)
     result = events[[EVENT_KEY]].merge(transaction_features, on=EVENT_KEY, validate="one_to_one")
     result = result.merge(market_features, on=EVENT_KEY, validate="one_to_one")
@@ -262,10 +285,56 @@ def build_event_features(
     return result
 
 
+def build_market_feature_snapshot(
+    information_dates: Iterable[object],
+    prices: pd.DataFrame,
+    frozen_universe_tickers: Iterable[str],
+    *,
+    sector_etf_by_ticker: Mapping[str, str] | None = None,
+) -> pd.DataFrame:
+    """Build pre-information-date market features for each date and universe ticker.
+
+    The caller supplies the repository's frozen S&P 100 ticker list and the
+    sector-ETF mapping. This is a cross-sectional snapshot, not historical
+    index-membership reconstruction. Every stock and ETF price used is strictly
+    before the requested information date.
+    """
+    required_prices = {"ticker", "date", "analysis_price"}
+    if not required_prices.issubset(prices.columns):
+        raise ValueError(f"prices missing {sorted(required_prices - set(prices.columns))}")
+    raw_tickers = list(frozen_universe_tickers)
+    if any(pd.isna(ticker) for ticker in raw_tickers):
+        raise ValueError("frozen_universe_tickers must contain valid ticker values")
+    tickers = [str(ticker).strip().upper() for ticker in raw_tickers]
+    if not tickers or any(not ticker for ticker in tickers):
+        raise ValueError("frozen_universe_tickers must contain valid ticker values")
+    if len(set(tickers)) != len(tickers):
+        raise ValueError("frozen_universe_tickers must not contain duplicates")
+    tickers.sort()
+    dates = pd.to_datetime(pd.Series(list(information_dates)), errors="coerce").dt.normalize()
+    if dates.empty or dates.isna().any():
+        raise ValueError("information_dates must contain valid dates")
+    dates = sorted(set(dates.tolist()))
+    price_index = _prepare_price_index(prices)
+    etf_map = {str(k).upper(): str(v).upper() for k, v in (sector_etf_by_ticker or {}).items()}
+
+    rows: list[dict[str, object]] = []
+    for information_date in dates:
+        for ticker in tickers:
+            event = pd.Series({"ticker": ticker, "information_date": information_date})
+            rows.append({
+                "ticker": ticker,
+                "information_date": information_date,
+                **_price_features(event, price_index, etf_map),
+            })
+    return pd.DataFrame(rows)
+
+
 FEATURE_DEFINITIONS = {
     "prior_return_5d": "prices.analysis_price[-1] / [-6] - 1; five trading intervals; decimal; null without six valid bars strictly before information_date.",
     "prior_return_30d": "prices.analysis_price[-1] / [-31] - 1; thirty trading intervals; decimal; null without 31 valid pre-information-date bars.",
     "prior_return_90d": "prices.analysis_price[-1] / [-91] - 1; ninety trading intervals; decimal; null without 91 valid pre-information-date bars.",
+    "sector_return_90d": "Mapped sector ETF analysis_price[-1] / [-91] - 1 over the exact same 91 stock trading dates; decimal; null if no mapping or any aligned ETF bar is unavailable.",
     "prior_volatility_30d": "Sample standard deviation of 30 simple returns from prices.analysis_price ending on the last bar strictly before information_date; decimal; null without 31 bars or valid returns.",
     "drawdown_90d": "Last pre-information-date prices.analysis_price / maximum of the prior 90 intervals' 91 prices - 1; decimal (zero or negative); null without 91 bars or a positive peak.",
     "volume_zscore_30d": "Latest pre-information-date prices.volume standardized against the preceding 30 completed sessions; unitless z-score; null if volume history is insufficient or constant.",
