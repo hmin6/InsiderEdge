@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { explanationSections, isResearchText, mockExplanation, requestExplanation } from '../api/explain';
+import { API_BASE_URL } from '../api/base';
 import type { ExplainResponse } from '../types/explain';
 import { Panel, PanelSkeleton, StateMessage, StatusBadge } from './ui';
 
@@ -42,7 +43,7 @@ function ExplanationRequest({ ticker }: { ticker: string }) {
     setState('pending');
     const timeout = window.setTimeout(() => controller.abort(), 20000);
     try {
-      const result = mock ? mockExplanation(ticker) : await requestExplanation(ticker, controller.signal, import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000');
+      const result = mock ? mockExplanation(ticker) : await requestExplanation(ticker, controller.signal, API_BASE_URL);
       if (request.current !== controller) return;
       if (controller.signal.aborted) throw new Error('Explanation timed out');
       setExplanation(result);

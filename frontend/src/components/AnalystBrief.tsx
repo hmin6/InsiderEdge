@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { briefAudioBlob, requestBrief } from '../api/brief';
+import { API_BASE_URL } from '../api/base';
 import type { BriefResponse } from '../types/brief';
 import { Panel, PanelSkeleton, StateMessage, StatusBadge } from './ui';
 
@@ -44,7 +45,7 @@ function BriefRequest({ ticker }: { ticker: string }) {
     setState('pending');
     const timeout = window.setTimeout(() => controller.abort(), 30000);
     try {
-      const result = await requestBrief(ticker, controller.signal, import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000');
+      const result = await requestBrief(ticker, controller.signal, API_BASE_URL);
       if (request.current !== controller) return;
       if (controller.signal.aborted) throw new Error('Timed out');
       setBrief(result);
