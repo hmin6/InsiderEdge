@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { briefAudioBlob, requestBrief } from '../api/brief';
 import { API_BASE_URL } from '../api/base';
 import type { BriefResponse } from '../types/brief';
-import { Panel, PanelSkeleton, StateMessage, StatusBadge } from './ui';
+import { Panel, PanelSkeleton, StateMessage } from './ui';
 
 export function BriefTranscript({ transcript }: { transcript: string }) {
   return <section><h3>Transcript</h3><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', marginTop: 8 }}>{transcript || 'No transcript provided.'}</p></section>;
@@ -65,7 +65,7 @@ function BriefRequest({ ticker }: { ticker: string }) {
       await audio.current.play();
     } catch { setPlayError(true); }
   }
-  return <Panel title="Analyst Brief · ElevenLabs" description="Optional audio interpretation of existing research evidence." actions={<StatusBadge>P1 · Optional</StatusBadge>}>
+  return <Panel title="Analyst Brief · ElevenLabs" description="Optional audio interpretation of existing research evidence." actions={<span className="ie-brief-header-spacer" aria-hidden="true" />}>
     <div className="ie-stack">
       <p className="ie-muted">Research context only. Generating audio does not change the signal, score, or model prediction.</p>
       <div><button className="ie-button" onClick={generate} disabled={state === 'pending' || state === 'success'}>{state === 'pending' ? 'Generating analyst brief…' : state === 'success' ? 'Brief generated' : state === 'error' ? 'Retry Generate Analyst Brief' : 'Generate Analyst Brief'}</button></div>
