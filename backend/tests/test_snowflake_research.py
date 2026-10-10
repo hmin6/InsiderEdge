@@ -762,3 +762,53 @@ def test_sentence_level_year_quantitative_claims_fail_closed(monkeypatch, statem
     ai_providers.post.side_effect = None
     ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
     assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+
+
+@pytest.mark.parametrize('rendered', [
+    'August 12, 2026', 'August 12 2026', 'August 12', 'Aug 12, 2026', 'Aug 12',
+    '12 August 2026', '12 August', '12 Aug 2026', '12 Aug', 'august 12, 2026',
+])
+def test_grounded_human_readable_dates(monkeypatch, rendered):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        f'The transaction was disclosed on {rendered}.']}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'available'
+
+
+@pytest.mark.parametrize('statement', [
+    'Review August 14, 2026.', 'Review September 12, 2026.',
+    'Review August 11, 2026.', 'Review August 12, 2025.',
+    'Review 12 September 2026.', 'Review 11 August.', 'Review August 32, 2026.',
+    '12 shares were purchased.', 'The value was 12.', 'The price was 12.', '$12',
+    '12%', 'The score was 12.', 'CAR30 was 12.', 'The return was 12.',
+    'The probability was 12.', 'The quantity was 12.',
+])
+def test_human_dates_do_not_grant_component_permission(monkeypatch, statement):
+    configure(monkeypatch)
+    # Deliberately exclude August 14; the combination must actually exist.
+    evidence = {**BRK_DATE_EVIDENCE, 'event': {'information_date': '2026-08-13',
+                 'research_event_id': 'synthetic'},
+                'filings': [{'transaction_date': '2026-08-12'}]}
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
+    assert research(evidence, SnowflakeProvider()).status == 'unavailable'
+
+
+def test_ungrounded_human_date_cannot_borrow_independent_day(monkeypatch):
+    configure(monkeypatch)
+    evidence = {**BRK_DATE_EVIDENCE, 'count': 12}
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        'Review September 12, 2026.']}, ''), 'application/json'
+    assert research(evidence, SnowflakeProvider()).status == 'unavailable'
+
+
+def test_axp_human_date_and_grounded_year_regression(monkeypatch):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    evidence = {**EVIDENCE, 'ticker': 'AXP', 'event': {
+        **EVIDENCE['event'], 'research_event_id': 'AXP:2026-03-16'}}
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [
+        'The event was on March 16, 2026. The filing belongs to 2026.']}, ''), 'application/json'
+    assert research(evidence, SnowflakeProvider()).status == 'available'
