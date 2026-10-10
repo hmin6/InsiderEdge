@@ -1,5 +1,6 @@
 import { SignalAvailability } from "../components/SignalAvailability";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from "react-router-dom";
 import { fetchRadar, usingResearchMocks } from "../api/client";
 import { useResource } from '../hooks/useResource';
@@ -15,7 +16,6 @@ import {
 
 type SortField = 'default' | 'company' | 'status' | 'anomaly' | 'activity' | 'dislocation' | 'model_prob' | 'priority';
 type SortDirection = 'none' | 'asc' | 'desc';
-type FlyoutSide = 'right' | 'left' | 'below';
 const sortOptions: { key: Exclude<SortField, 'default'>; label: string }[] = [
   { key: 'company', label: 'Company' },
   { key: 'status', label: 'Status' },
@@ -25,10 +25,15 @@ const sortOptions: { key: Exclude<SortField, 'default'>; label: string }[] = [
   { key: 'model_prob', label: 'Model Probability' },
   { key: 'priority', label: 'Research Priority Score' },
 ];
-function flyoutSide(left: number, right: number, viewport: number): FlyoutSide {
-  if (viewport <= 600) return 'below';
-  if (right + 276 <= viewport - 8) return 'right';
-  return left >= 284 ? 'left' : 'below';
+function calculateFlyoutCoords(rect: { right: number; top: number }, viewportWidth: number,
+  viewportHeight: number, panelWidth = 220, panelHeight = 110) {
+  const edge = 12;
+  const width = Math.min(panelWidth, Math.max(0, viewportWidth - edge * 2));
+  const height = Math.min(panelHeight, Math.max(0, viewportHeight - edge * 2));
+  return {
+    left: Math.max(edge, Math.min(rect.right - 10, viewportWidth - width - edge)),
+    top: Math.max(edge, Math.min(rect.top, viewportHeight - height - edge)),
+  };
 }
 function sortLabel(field: SortField, direction: SortDirection) {
   if (direction === 'none') return '—';
@@ -76,7 +81,9 @@ export default function RadarPage() {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<{ field: SortField; direction: SortDirection }>({ field: 'default', direction: 'none' });
   const [openField, setOpenField] = useState<Exclude<SortField, 'default'> | null>(null);
-  const [flyoutPosition, setFlyoutPosition] = useState<{ side: FlyoutSide; top: number }>({ side: 'right', top: 0 });
+  const [flyoutPosition, setFlyoutPosition] = useState({ left: 12, top: 12 });
+  const flyoutPanel = useRef<HTMLDivElement>(null);
+  const closeAllTimerRef = useRef<number | null>(null);
   const focusFlyout = useRef(false);
   const [sortOpen, setSortOpen] = useState(false);
   const sortContainer = useRef<HTMLDivElement>(null);
@@ -90,26 +97,76 @@ export default function RadarPage() {
     item.ticker.toLowerCase().includes(filter) || item.company_name.toLowerCase().includes(filter),
   ).sort((a, b) => compareRadar(a, b, sort.field, sort.direction));
 
+  function clearTimer() {
+    if (closeAllTimerRef.current !== null) {
+      window.clearTimeout(closeAllTimerRef.current);
+      closeAllTimerRef.current = null;
+    }
+  }
   function closeSort() {
+    clearTimer();
     setSortOpen(false);
     setOpenField(null);
   }
+  function scheduleClose() {
+    clearTimer();
+    if (!sortOpen) return;
+    closeAllTimerRef.current = window.setTimeout(() => {
+      closeAllTimerRef.current = null;
+      if (sortContainer.current?.contains(document.activeElement)
+        || flyoutPanel.current?.contains(document.activeElement)) sortTrigger.current?.focus();
+      closeSort();
+    }, 160);
+  }
+  function handleParentMouseLeave(event: ReactMouseEvent) {
+    const related = event.relatedTarget;
+    if (related instanceof Node && flyoutPanel.current?.contains(related)) { clearTimer(); return; }
+    scheduleClose();
+  }
+  function handleFlyoutMouseLeave(event: ReactMouseEvent) {
+    const related = event.relatedTarget;
+    const activeRow = sortMenu.current?.querySelector(`[data-sort-trigger="${openField}"]`)
+      ?.closest('.ie-radar-sort-row');
+    if (related instanceof Node && activeRow?.contains(related)) {
+      clearTimer();
+      return;
+    }
+    if (related instanceof Node && sortContainer.current?.contains(related)) {
+      clearTimer();
+      const target = related instanceof Element ? related : related.parentElement;
+      if (!target?.closest('.ie-radar-sort-row')) setOpenField(null);
+    } else scheduleClose();
+  }
+  function handleParentMouseMove(event: ReactMouseEvent<HTMLDivElement>) {
+    const target = event.target;
+    if (!(target instanceof Element) || !event.currentTarget.contains(target)) return;
+    if (!target.closest('.ie-radar-sort-row')) {
+      clearTimer();
+      setOpenField(null);
+    }
+  }
   function openFlyout(field: Exclude<SortField, 'default'>, row: Element, focus = false) {
+    clearTimer();
     const bounds = row.getBoundingClientRect();
-    setFlyoutPosition({ side: flyoutSide(bounds.left, bounds.right, window.innerWidth),
-      top: Math.max(8 - bounds.top, Math.min(0, window.innerHeight - bounds.top - 158)) });
+    setFlyoutPosition(calculateFlyoutCoords(bounds, window.innerWidth, window.innerHeight));
     focusFlyout.current = focus;
     setOpenField(field);
     if (focus && openField === field) {
-      const selected = row.querySelector<HTMLButtonElement>('[aria-checked="true"]');
-      (selected || row.querySelector<HTMLButtonElement>('[role="menuitemradio"]'))?.focus();
+      const selected = flyoutPanel.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]');
+      (selected || flyoutPanel.current?.querySelector<HTMLButtonElement>('[role="menuitemradio"]'))?.focus();
     }
   }
 
   useEffect(() => {
+    if (openField) {
+      const row = sortMenu.current?.querySelector(`[data-sort-trigger="${openField}"]`)?.parentElement;
+      const panel = flyoutPanel.current;
+      if (row && panel) setFlyoutPosition(calculateFlyoutCoords(row.getBoundingClientRect(),
+        window.innerWidth, window.innerHeight, panel.offsetWidth, panel.offsetHeight));
+    }
     if (openField && focusFlyout.current) {
-      const selected = sortMenu.current?.querySelector<HTMLButtonElement>('[role="menuitemradio"][aria-checked="true"]');
-      (selected || sortMenu.current?.querySelector<HTMLButtonElement>('[role="menuitemradio"]'))?.focus();
+      const selected = flyoutPanel.current?.querySelector<HTMLButtonElement>('[role="menuitemradio"][aria-checked="true"]');
+      (selected || flyoutPanel.current?.querySelector<HTMLButtonElement>('[role="menuitemradio"]'))?.focus();
       focusFlyout.current = false;
     }
   }, [openField]);
@@ -118,7 +175,8 @@ export default function RadarPage() {
     if (!sortOpen) return;
     sortMenu.current?.querySelector<HTMLButtonElement>('[data-sort-trigger]')?.focus();
     const dismissOutside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !sortContainer.current?.contains(event.target)) closeSort();
+      if (event.target instanceof Node && !sortContainer.current?.contains(event.target)
+        && !flyoutPanel.current?.contains(event.target)) closeSort();
     };
     const dismissEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -130,10 +188,17 @@ export default function RadarPage() {
     document.addEventListener('pointerdown', dismissOutside);
     document.addEventListener('keydown', dismissEscape);
     window.addEventListener('resize', closeSort);
+    const dismissScroll = (event: Event) => {
+      if (!(event.target instanceof Node) || (!flyoutPanel.current?.contains(event.target)
+        && !sortMenu.current?.contains(event.target))) closeSort();
+    };
+    window.addEventListener('scroll', dismissScroll, true);
     return () => {
+      clearTimer();
       document.removeEventListener('pointerdown', dismissOutside);
       document.removeEventListener('keydown', dismissEscape);
       window.removeEventListener('resize', closeSort);
+      window.removeEventListener('scroll', dismissScroll, true);
     };
   }, [sortOpen]);
 
@@ -223,7 +288,8 @@ return (
               >
                 Search
               </button>
-              <div className="ie-radar-sort" ref={sortContainer}>
+              <div className="ie-radar-sort" ref={sortContainer}
+                onMouseEnter={clearTimer} onMouseLeave={handleParentMouseLeave}>
                 <button
                   className="ie-button"
                   type="button"
@@ -242,11 +308,16 @@ return (
                 >Sort</button>
                 {sortOpen && (
                   <div className="ie-radar-sort-menu" id="radar-sort-menu" role="menu"
-                    aria-labelledby="radar-sort-trigger" ref={sortMenu} onKeyDown={navigateSortMenu}>
+                    aria-labelledby="radar-sort-trigger" ref={sortMenu} onKeyDown={navigateSortMenu}
+                    onMouseMove={handleParentMouseMove}>
                     {sortOptions.map((option) => {
                       const direction = sort.field === option.key ? sort.direction : 'none';
                       return <div className="ie-radar-sort-row" key={option.key} role="none"
-                        onMouseEnter={(event) => openFlyout(option.key, event.currentTarget)}>
+                        onMouseEnter={(event) => {
+                          if (event.relatedTarget instanceof Node && flyoutPanel.current?.contains(event.relatedTarget)
+                            && openField === option.key) { clearTimer(); return; }
+                          openFlyout(option.key, event.currentTarget);
+                        }}>
                         <button type="button" role="menuitem" tabIndex={-1}
                           id={`sort-field-${option.key}`} data-sort-trigger={option.key}
                           aria-haspopup="menu" aria-expanded={openField === option.key}
@@ -263,8 +334,9 @@ return (
                           <span className="ie-radar-sort-label">{option.label}</span>
                           <span className="ie-radar-sort-badge">{sortLabel(option.key, direction)}</span>
                         </button>
-                        {openField === option.key && <div className="ie-radar-sort-flyout" role="menu"
-                          data-side={flyoutPosition.side} style={flyoutPosition.side === 'below' ? undefined : { top: flyoutPosition.top }}
+                        {openField === option.key && createPortal(<div className="ie-radar-sort-flyout" role="menu"
+                          ref={flyoutPanel} style={flyoutPosition}
+                          onMouseEnter={clearTimer} onMouseLeave={handleFlyoutMouseLeave}
                           id={`sort-options-${option.key}`} aria-labelledby={`sort-field-${option.key}`}>
                           {directionOptions(option.key).map((choice) => <button type="button" key={choice.direction}
                             role="menuitemradio" tabIndex={-1} aria-checked={direction === choice.direction}
@@ -273,11 +345,11 @@ return (
                               closeSort();
                               sortTrigger.current?.focus();
                             }}>{choice.label}</button>)}
-                        </div>}
+                        </div>, document.body)}
                       </div>;
                     })}
                     <button className="ie-radar-sort-reset" type="button" role="menuitem" tabIndex={-1}
-                      data-sort-reset onMouseEnter={() => setOpenField(null)} onFocus={() => setOpenField(null)}
+                      data-sort-reset onMouseEnter={() => { clearTimer(); setOpenField(null); }} onFocus={() => setOpenField(null)}
                       onClick={() => {
                         setSort({ field: 'default', direction: 'none' });
                         closeSort();
