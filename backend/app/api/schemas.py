@@ -26,6 +26,8 @@ class RadarItem(ResponseModel):
     ml_outperformance_probability: Probability | None
     score_status: Literal['complete', 'partial', 'insufficient_data']
     unavailable_components: list[str]
+    # Additive read-model state; legacy payloads may omit this field.
+    availability_status: Literal['not_scored', 'complete', 'partial', 'insufficient_data'] | None = None
 
 
 class RadarResponse(ResponseModel):
