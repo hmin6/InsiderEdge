@@ -165,13 +165,33 @@ def numbers_grounded(numbers, grounded_numbers):
 
 
 def grounded_year_reference(text, match, grounded_years):
-    """Permit date abstractions only in explicit calendar-year prose contexts."""
+    """Ground date abstractions unless their sentence expresses a numeric claim."""
     year = match.group(0)
     if not re.fullmatch(r'[0-9]{4}', year) or year not in grounded_years:
         return False
-    before, after = text[:match.start()], text[match.end():]
-    return bool(re.search(r'\b(?:in|during)\s+$', before, re.I)
-                or re.match(r'\s+(?:filings?|transactions?|insider\s+activity)\b', after, re.I))
+    # Use the candidate's existing span; punctuation within identifiers/decimals
+    # is not a sentence boundary. No grammatical allowlist grants permission.
+    boundaries = list(re.finditer(r'[.!?](?=\s|$)|[\r\n]', text))
+    start = max((m.end() for m in boundaries if m.end() <= match.start()), default=0)
+    end = min((m.start() for m in boundaries if m.start() >= match.end()), default=len(text))
+    sentence = text[start:end]
+    if QUANTITATIVE_CLAIM.search(sentence):
+        return False
+    # Reject reversed assignments too: "2026 was the reported value".
+    if re.match(
+        r'\s+(?:is|was|were|are|equals?)\s+'
+        r'(?:(?:the|reported|purchase|observed|recorded|total|estimated)\s+){0,4}'
+        r'(?:prices?|returns?|probabilit(?:y|ies)|scores?|IES|CAR\d*|shares?|'
+        r'quantity|quantities|amounts?|values?)\b', text[match.end():end], re.I):
+        return False
+    # Amount/value/quantity are not forbidden globally (grounded purchase values
+    # remain valid), but cannot borrow an ISO-date year as a numeric measurement.
+    # Conservatively reject assignment language, including intervening qualifiers.
+    return not re.search(
+        r'\b(?:prices?|returns?|probabilit(?:y|ies)|scores?|IES|CAR\d*|shares?|'
+        r'quantity|quantities|amounts?|values?)\b'
+        r'(?:\s+[A-Za-z]+){0,4}\s*(?:[:=]|\b(?:is|was|were|are|of|at|equals?)\b|(?=\d))',
+        sentence, re.I)
 
 
 
