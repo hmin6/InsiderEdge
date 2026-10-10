@@ -9,7 +9,6 @@ import {
   fetchPrediction,
   usingResearchMocks,
 } from "../api/client";
-import { ApiError } from "../api/http";
 import { useResource } from "../hooks/useResource";
 import {
   AppShell,
@@ -242,6 +241,10 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                   )}
                 </div>
               </Panel>
+            </PanelBoundary>
+
+            <PanelBoundary label="Snowflake research" key={`snowflake:${eventKey}`}>
+              <SnowflakeResearch ticker={data.ticker} />
             </PanelBoundary>
 
             {/* AI Side-by-Side Grid */}
