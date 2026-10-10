@@ -8,7 +8,9 @@ local/production reads and browser navigation, and successful final live Gemini
 and ElevenLabs verification. Exactly one request was made to each provider after
 explicit human authorization; neither was retried.
 
-Production frontend: https://insider-edge-omega.vercel.app
+Production frontend: https://insideredge.work
+
+Fallback frontend: https://insider-edge-omega.vercel.app
 
 Production backend: https://insideredge-api.onrender.com
 

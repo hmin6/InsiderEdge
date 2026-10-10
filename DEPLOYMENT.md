@@ -196,6 +196,83 @@ Recheck health and read endpoints after any provider failure. Hosted deep links,
 browser CORS, audio playback, Render Linux dependency installation and real public
 URLs still require manual platform verification; local checks do not deploy them.
 
+## GoDaddy branded domain — Issue #75
+
+Status: **VERIFIED**. The following configuration and browser results were
+human-verified and supplied for the Issue #75 completion record. No additional
+live requests or account changes were performed during this documentation update.
+
+### A. Repository and production addresses
+
+| Role | Verified address / behavior |
+|---|---|
+| Primary branded frontend | https://insideredge.work |
+| WWW | https://www.insideredge.work → **308 Permanent Redirect** → https://insideredge.work |
+| Fallback frontend | https://insider-edge-omega.vercel.app |
+| Backend API | https://insideredge-api.onrender.com |
+
+Frontend hosting remains Vercel, backend hosting remains Render, and persisted
+research data remains in Tiger PostgreSQL. The existing SPA rewrite supports
+`/company/AXP` direct entry and refresh. The frontend API base remains
+`VITE_API_BASE_URL=https://insideredge-api.onrender.com`. No application code,
+deployment configuration, environment files or secrets changed for this record.
+
+### B. Vercel configuration — verified
+
+- `insideredge.work`: **Valid Configuration / Production**.
+- `www.insideredge.work`: **Valid Configuration**, with a **308** redirect to
+  `https://insideredge.work`.
+- `insider-edge-omega.vercel.app`: remains valid as the production fallback.
+
+### C. Domain source and Porkbun DNS — verified
+
+The domain was obtained through the **GoDaddy Registry / MLH hackathon benefit**.
+**Porkbun is the current registrar and DNS-management interface**; DNS is not
+managed through GoDaddy's dashboard. Vercel continues to host the frontend.
+
+These public DNS values came directly from Vercel for this project and were
+verified in the Porkbun configuration. They are **not universal Vercel records**
+and must not be copied to unrelated projects.
+
+| Type | Host | Verified value |
+|---|---|---|
+| A | Root / apex | `216.198.79.1` |
+| CNAME | `www` | `b740570e64fea910.vercel-dns-017.com` |
+
+The `www` HTTP redirect is configured in Vercel; the CNAME alone does not implement
+an HTTP redirect. For future changes, use this project's current Vercel domain
+instructions and preserve unrelated DNS records.
+
+### D. Render CORS — verified
+
+Render's `CORS_ORIGINS` explicitly includes both production browser origins:
+
+```text
+https://insider-edge-omega.vercel.app,https://insideredge.work
+```
+
+No wildcard CORS was introduced. The API remains on Render; database and provider
+credentials remain server-side and are not recorded here.
+
+### E. HTTPS and browser verification — complete
+
+Human verification confirmed:
+
+- `https://insideredge.work` loads Radar over HTTPS.
+- `https://insideredge.work/company/AXP` loads directly and survives page refresh.
+- `https://www.insideredge.work` redirects to the apex with HTTP **308**.
+- Browser API requests target `https://insideredge-api.onrender.com`.
+- AXP company, prices, insiders, statistics and prediction requests return **200**.
+- No localhost requests or CORS failures occur; AXP evidence renders normally.
+- The Vercel fallback remains valid and available at
+  `https://insider-edge-omega.vercel.app`.
+
+The branded-domain verification is complete; no domain-configuration step remains
+pending. Keep the fallback available if a future DNS, HTTPS or CORS change causes
+an outage. The existing AXP evidence and provider verification remain documented
+in [the demo plan](docs/DEMO_PLAN.md); this domain update made no additional paid
+Gemini or ElevenLabs requests.
+
 ## References
 
 - [Render FastAPI](https://render.com/docs/deploy-fastapi)
