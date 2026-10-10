@@ -1,4 +1,4 @@
-import { formatCurrency } from '../utils/format';
+import { formatCurrency } from "../utils/format";
 import { useMemo, useEffect, useState } from "react";
 import {
   LineChart,
@@ -48,7 +48,7 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
     return <div className="ie-muted">No price history available.</div>;
   }
 
- return (
+  return (
     <div className="ie-price-chart" style={{ width: "100%", height: 400 }}>
       <ResponsiveContainer>
         <LineChart
@@ -74,29 +74,35 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
             width={100}
           />
           <Tooltip
+            formatter={(value: any) => [
+              value != null ? `$${Number(value).toFixed(2)}` : "—",
+              "Closing Price",
+            ]}
+            labelFormatter={(label) => `Date: ${label}`}
             contentStyle={{
-              backgroundColor: "var(--ie-surface)",
               borderRadius: "8px",
               border: "1px solid var(--ie-border)",
               boxShadow: "var(--ie-shadow)",
+              padding: "12px",
             }}
             labelStyle={{
               fontWeight: 600,
               color: "var(--ie-text)",
               marginBottom: "4px",
             }}
-            itemStyle={{ color: "var(--ie-muted)" }}
-            formatter={(value) =>
-              formatCurrency(typeof value === "number" ? value : null)
-            }
           />
           <Line
             type="monotone"
             dataKey="analysis_price"
-            name="Adjustment-aware price"
             stroke="var(--ie-text)"
-            strokeWidth={2.5}
+            strokeWidth={2}
             dot={false}
+            activeDot={{
+              r: 6,
+              fill: "var(--ie-primary)",
+              stroke: "#fff",
+              strokeWidth: 2,
+            }}
             animationDuration={300}
             isAnimationActive={!reducedMotion}
           />
@@ -115,5 +121,5 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
         </LineChart>
       </ResponsiveContainer>
     </div>
- );
+  );
 }
