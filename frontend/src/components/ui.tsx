@@ -1,4 +1,4 @@
-import { useId, type HTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useId, useState, type HTMLAttributes, type ReactNode } from 'react';
 import type { InsiderRole } from '../types/visual';
 
 export type NavigationItem = { label: string; href: string; current?: boolean };
@@ -7,12 +7,29 @@ export function AppShell({ children, navigation, utility }: {
   children: ReactNode; navigation: NavigationItem[]; utility?: ReactNode;
 }) {
   const mainId = useId();
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      return typeof window !== 'undefined' && window.localStorage.getItem('ie_theme') === 'light' ? 'light' : 'dark';
+    } catch { return 'dark'; }
+  });
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try { window.localStorage.setItem('ie_theme', theme); } catch { /* Theme remains usable when storage is blocked. */ }
+  }, [theme]);
   return <div className="ie-shell">
     <a className="ie-skip-link" href={`#${mainId}`}>Skip to research workspace</a>
     <header className="ie-topbar">
-      <a className="ie-brand" href="/" aria-label="InsiderEdge home"><span className="ie-brand-mark" aria-hidden="true">IE</span>InsiderEdge</a>
+      <a className="ie-brand" href="/" aria-label="InsiderEdge home" aria-current={navigation.some(item => item.href === '/' && item.current) ? 'page' : undefined}><span className="ie-brand-mark" aria-hidden="true">IE</span>InsiderEdge</a>
       <nav className="ie-navigation" aria-label="Primary navigation">
-        {navigation.map(item => <a key={item.href} href={item.href} aria-current={item.current ? 'page' : undefined}>{item.label}</a>)}
+        <button className="ie-theme-toggle" type="button" aria-label="Toggle light/dark theme"
+          title="Toggle theme" aria-pressed={theme === 'light'}
+          onClick={() => setTheme(current => current === 'dark' ? 'light' : 'dark')}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+            {theme === 'dark' ? <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" /></>
+              : <path d="M20.5 14A9 9 0 0 1 10 3.5 9 9 0 1 0 20.5 14Z" />}
+          </svg>
+        </button>
+        {navigation.filter(item => item.href !== '/').map(item => <a key={item.href} href={item.href} aria-current={item.current ? 'page' : undefined}>{item.label}</a>)}
       </nav>
       {utility && <div className="ie-topbar-utility">{utility}</div>}
     </header>
