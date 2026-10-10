@@ -1,3 +1,4 @@
+import { formatNumber } from '../utils/format';
 import type { ScoreEvidence } from '../types/score';
 import { useScoreReveal } from '../hooks/useScoreReveal';
 import { Panel, ScoreStatusBadge } from './ui';
@@ -28,8 +29,8 @@ export function InsiderEdgeScore({ evidence }: { evidence: ScoreEvidence }) {
             {score !== null && <circle className="ie-score-fill" cx="60" cy="60" r="52" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - score * progress} />}
           </svg>
           <div className="ie-score-number">
-            <span className="ie-sr-only">{score === null ? 'Score unavailable' : `${score} out of 100`}</span>
-            <strong aria-hidden="true">{score === null ? '—' : progress === 1 ? String(score) : Math.floor(score * progress)}</strong>
+            <span className="ie-sr-only">{score === null ? 'Score unavailable' : `${formatNumber(score)} out of 100`}</span>
+            <strong aria-hidden="true">{score === null ? '—' : formatNumber(score * progress)}</strong>
             <span aria-hidden="true">{score === null ? 'Unavailable' : '/ 100'}</span>
           </div>
         </div>
@@ -39,7 +40,7 @@ export function InsiderEdgeScore({ evidence }: { evidence: ScoreEvidence }) {
       <dl className="ie-score-components">
         {components.map(component => <div className="ie-score-component" key={component.key}>
           <dt><span className="ie-score-letter">{component.key}</span>{component.label}</dt>
-          <dd>{component.value === null ? <span className="ie-muted">Unavailable</span> : <><strong>{String(component.value)}</strong> <span className="ie-muted">{component.unit}</span></>}</dd>
+          <dd>{component.value === null ? <span className="ie-muted">Unavailable</span> : <><strong>{formatNumber(component.value)}</strong> <span className="ie-muted">{component.unit}</span></>}</dd>
           {component.value !== null && <div className="ie-score-bar" aria-hidden="true"><span style={{ transform: `scaleX(${component.value / 100 * progress})` }} /></div>}
         </div>)}
       </dl>

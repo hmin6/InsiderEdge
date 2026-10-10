@@ -1,3 +1,4 @@
+import { formatCurrency } from '../utils/format';
 import { useMemo, useEffect, useState } from "react";
 import {
   LineChart,
@@ -69,8 +70,8 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
           <YAxis
             domain={["auto", "auto"]}
             tick={{ fontSize: 14, fill: "var(--ie-muted)" }}
-            tickFormatter={(val) => `$${val.toFixed(0)}`}
-            width={72}
+            tickFormatter={formatCurrency}
+            width={100}
           />
           <Tooltip
             contentStyle={{
@@ -86,7 +87,7 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
             }}
             itemStyle={{ color: "var(--ie-muted)" }}
             formatter={(value) =>
-              typeof value === "number" ? `$${value.toFixed(2)}` : String(value)
+              formatCurrency(typeof value === "number" ? value : null)
             }
           />
           <Line
