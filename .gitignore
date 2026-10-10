@@ -11,3 +11,6 @@ data/universe_sources/
 data/market_ingestion_report.json
 data/event_dataset_report.json
 data/fundamentals_report.json
+
+
+DS_Store
