@@ -616,3 +616,59 @@ def test_year_reference_requires_complete_evidence_date(monkeypatch):
     ai_providers.post.side_effect = None
     ai_providers.post.return_value = body({**CONTENT, 'event_context': ['Review filings in 2026.']}, ''), 'application/json'
     assert research(evidence, SnowflakeProvider()).status == 'unavailable'
+
+
+@pytest.mark.parametrize('text,expected', [
+    ('Review in 2026.', 'preceded_by_in'),
+    ('Review during 2026.', 'preceded_by_during'),
+    ('The 2026 filing.', 'followed_by_filing'),
+    ('The 2026 transaction.', 'followed_by_transaction'),
+    ('The 2026 insider context.', 'followed_by_insider'),
+    ('The 2026 activity.', 'followed_by_activity'),
+    ('2026 warrants review.', 'sentence_initial'),
+    ('Review the year 2026.', 'sentence_final'),
+    ('Review (2026) context.', 'parenthetical'),
+    ("Review 2026's context.", 'possessive'),
+    ('Review year 2026 context.', 'other'),
+    ('2026 filing.', 'followed_by_filing'),
+    ('Review in 2026 filing.', 'preceded_by_in'),
+])
+def test_fixed_year_context_categories(text, expected):
+    from app.services.snowflake_research import numeric_matches, rejected_year_context
+    match = numeric_matches(text)[0]
+    assert rejected_year_context(text, match, {'2026'}) == expected
+    assert rejected_year_context(text, match, {'2025'}) is None
+
+
+@pytest.mark.parametrize('statement,expected', [
+    ('2026 PRIVATE_AFTER', 'sentence_initial'),
+    ('PRIVATE_BEFORE year 2026.', 'sentence_final'),
+    ('PRIVATE_BEFORE (2026) PRIVATE_AFTER', 'parenthetical'),
+    ("PRIVATE_BEFORE 2026's PRIVATE_AFTER", 'possessive'),
+    ('PRIVATE_BEFORE 2026 activity.', 'followed_by_activity'),
+    ('PRIVATE_BEFORE 2026 insider context.', 'followed_by_insider'),
+    ('PRIVATE_BEFORE year 2026 PRIVATE_AFTER', 'other'),
+    ('PRIVATE_BEFORE price was 2026.', 'sentence_final'),
+])
+def test_rejected_year_context_logs_only_fixed_metadata(monkeypatch, caplog, statement, expected):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': [statement]}, ''), 'application/json'
+    result = research(BRK_DATE_EVIDENCE, SnowflakeProvider())
+    assert result.status == 'unavailable' and result.context is None
+    assert 'rejected_token=2026 token_kind=integer token_source=standalone' in caplog.text
+    assert f'year_context={expected}' in caplog.text
+    for forbidden in ('PRIVATE_BEFORE', 'PRIVATE_AFTER', 'synthetic-test-token', 'Authorization',
+                      'Use only supplied evidence', 'aggregate_purchase_value', 'event_context'):
+        assert forbidden not in caplog.text
+    assert all(record.exc_info is None for record in caplog.records)
+    assert 'year_context' not in result.model_dump_json()
+
+
+def test_ungrounded_year_has_no_year_context(monkeypatch, caplog):
+    configure(monkeypatch)
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body({**CONTENT, 'event_context': ['Review in 2025.']}, ''), 'application/json'
+    assert research(BRK_DATE_EVIDENCE, SnowflakeProvider()).status == 'unavailable'
+    assert 'rejected_token=2025' in caplog.text
+    assert 'year_context=' not in caplog.text

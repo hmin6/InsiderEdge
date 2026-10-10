@@ -103,7 +103,7 @@ def numeric_token_kind(token):
 
 class NumericGroundingFailure(ValueError):
     """Only an isolated bounded numeric token is retained, never source text."""
-    def __init__(self, token, kind=None, source=('standalone', None)):
+    def __init__(self, token, kind=None, source=('standalone', None), year_context=None):
         super().__init__('Numeric grounding rejected')
         isolated = re.sub(r'\s+', ' ', token)
         self.rejected_token = isolated[:TOKEN_LOG_LIMIT]
@@ -112,6 +112,7 @@ class NumericGroundingFailure(ValueError):
             self.rejected_token = re.sub(r'[A-Za-z ]+$', '', self.rejected_token)
         self.token_kind = kind or numeric_token_kind(token)
         self.token_source, self.containing_date = source
+        self.year_context = year_context
 
 
 def numeric_matches(text):
@@ -170,6 +171,37 @@ def grounded_year_reference(text, match, grounded_years):
     before, after = text[:match.start()], text[match.end():]
     return bool(re.search(r'\b(?:in|during)\s+$', before, re.I)
                 or re.match(r'\s+(?:filings?|transactions?|insider\s+activity)\b', after, re.I))
+
+
+
+YEAR_CONTEXTS = frozenset({
+    'preceded_by_in', 'preceded_by_during', 'followed_by_filing',
+    'followed_by_transaction', 'followed_by_insider', 'followed_by_activity',
+    'sentence_initial', 'sentence_final', 'parenthetical', 'possessive', 'other',
+})
+
+
+def rejected_year_context(text, match, grounded_years):
+    """Diagnostic only: return a fixed category, never neighboring source text."""
+    if not re.fullmatch(r'[0-9]{4}', match.group(0)) or match.group(0) not in grounded_years:
+        return None
+    before, after = text[:match.start()], text[match.end():]
+    # Specific local syntax takes precedence over sentence position.
+    if re.match(r"['’]s\b", after, re.I):
+        return 'possessive'
+    if re.search(r'\(\s*$', before) and re.match(r'\s*\)', after):
+        return 'parenthetical'
+    for word in ('in', 'during'):
+        if re.search(r'\b' + word + r'\s+$', before, re.I):
+            return 'preceded_by_' + word
+    for word, suffix in (('filing', 's?'), ('transaction', 's?'), ('insider', 's?'), ('activity', '')):
+        if re.match(r'\s+' + word + suffix + r'\b', after, re.I):
+            return 'followed_by_' + word
+    if not before.strip() or re.search(r'[.!?]\s+$', before):
+        return 'sentence_initial'
+    if re.fullmatch(r'\s*[.!?]?\s*', after):
+        return 'sentence_final'
+    return 'other'
 
 
 def assemble(session, company):
@@ -270,7 +302,8 @@ class SnowflakeProvider:
                                   and not grounded_year_reference(text, match, grounded_years)), None)
                     if first is not None:
                         raise NumericGroundingFailure(first.group(0), source=numeric_source(
-                            matches, first.start(), first.end()))
+                            matches, first.start(), first.end()),
+                            year_context=rejected_year_context(text, first, grounded_years))
                     # These quantitative outputs are never supplied to this provider.
                     category = 'safety_language_rejected'
                     if QUANTITATIVE_CLAIM.search(text):
@@ -282,6 +315,7 @@ class SnowflakeProvider:
             if category == 'numeric_grounding_rejected' and isinstance(error, NumericGroundingFailure):
                 failure.numeric_diagnostic = (error.rejected_token, error.token_kind,
                                               error.token_source, error.containing_date)
+                failure.year_context = error.year_context
             raise failure from None
 
 
@@ -292,6 +326,7 @@ def research(evidence, provider):
                             'evidence': evidence}, limitations=LIMITATIONS)
     category = 'research_event_missing'
     numeric_diagnostic = None
+    year_context = None
     if event:
         try:
             model, context = provider.generate(evidence)
@@ -299,6 +334,7 @@ def research(evidence, provider):
         except (ai_providers.ProviderFailure, ValueError, TypeError) as error:
             category = getattr(error, 'reason_category', 'unexpected_error')
             numeric_diagnostic = getattr(error, 'numeric_diagnostic', None)
+            year_context = getattr(error, 'year_context', None)
     # Only fixed categories and validated identifiers; no provider text or exc_info.
     allowed = {'configuration_missing', 'provider_timeout', 'provider_http_error',
                'provider_response_invalid', 'finish_reason_rejected', 'schema_validation_failed',
@@ -327,6 +363,11 @@ def research(evidence, provider):
             if source == 'date_component':
                 message += ' containing_date=%s'
                 args += (containing_date,)
+            if (source == 'standalone' and kind == 'integer'
+                    and re.fullmatch(r'[0-9]{4}', rejected)
+                    and isinstance(year_context, str) and year_context in YEAR_CONTEXTS):
+                message += ' year_context=%s'
+                args += (year_context,)
             logger.warning(message, *args)
         else:
             logger.warning('Snowflake research unavailable ticker=%s research_event_id=%s reason=%s',
