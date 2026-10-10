@@ -3,10 +3,15 @@ import json
 import os
 import re
 from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.error import HTTPError, URLError
 
 
 class ProviderFailure(RuntimeError):
     """Only sanitized public messages cross the provider boundary."""
+
+    def __init__(self, message, *, reason_category='unexpected_error'):
+        super().__init__(message)
+        self.reason_category = reason_category
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -25,8 +30,18 @@ def post(url, headers, payload, timeout, limit):
         if not body or len(body) > limit:
             raise ValueError
         return body, mime
-    except Exception:
-        raise ProviderFailure('AI provider request unavailable') from None
+    except Exception as error:
+        # Carry categories only; never retain exception text, bodies or headers.
+        if isinstance(error, HTTPError):
+            category = 'provider_http_error'
+        elif isinstance(error, TimeoutError) or (
+                isinstance(error, URLError) and isinstance(error.reason, TimeoutError)):
+            category = 'provider_timeout'
+        elif isinstance(error, ValueError):
+            category = 'provider_response_invalid'
+        else:
+            category = 'unexpected_error'
+        raise ProviderFailure('AI provider request unavailable', reason_category=category) from None
 
 
 def configuration(key_name, model_name, default_model, timeout_name):
