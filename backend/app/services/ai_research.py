@@ -100,8 +100,28 @@ def transcript(evidence):
         parts.append(f'The stored model outperformance probability is {evidence.model_probability:g} on a zero to one scale; it is not a guarantee.')
     else:
         parts.append('No model outperformance probability is available.')
-    parts.extend(['Historical outcome statistics and pre-event market context are not integrated in this brief.',
-                  'Held-out model evaluation metrics are not integrated in this brief.',
+    historical = evidence.historical_statistics
+    parts.append(f'Historical statistical evidence status: {historical["status"].replace("_", " ")}.')
+    for field, label in [('comparable_event_count', 'Comparable historical event count'),
+                         ('mean_car30', 'Comparable historical mean CAR30 (decimal return)'),
+                         ('randomization_p_value', 'Historical randomization p-value'),
+                         ('statistical_score', 'Stored statistical evidence score')]:
+        value = historical.get(field)
+        parts.append(f'{label}: {value:g}.' if value is not None else f'{label} is unavailable.')
+    interval = historical.get('bootstrap_ci_95')
+    parts.append(f'Historical 95 percent bootstrap interval (decimal returns): {interval["lower"]:g} to {interval["upper"]:g}.'
+                 if interval is not None else 'Historical bootstrap interval is unavailable.')
+    # Cohort labels are controlled backend results, but do not speak arbitrary
+    # stored source strings. The structured explanation retains the cohort field.
+    market = evidence.market_context
+    parts.append(f'Pre-event market evidence status: {market["status"].replace("_", " ")}.')
+    for field, label in [('stock_return_90d', 'Pre-event 90-session stock return (decimal)'),
+                         ('sector_return_90d', 'Pre-event 90-session sector return (decimal)'),
+                         ('drawdown', 'Pre-event drawdown (decimal)'),
+                         ('dislocation_score', 'Stored market-dislocation score')]:
+        value = market.get(field)
+        parts.append(f'{label}: {value:g}.' if value is not None else f'{label} is unavailable.')
+    parts.extend(['Held-out model evaluation metrics are unavailable without a durable frozen evaluation artifact.',
                   'Future outcomes must not be assumed known at the information boundary.',
                   'Review source evidence and uncertainty before drawing research conclusions.'])
     if evidence.event_diagnostics.get('statuses'):

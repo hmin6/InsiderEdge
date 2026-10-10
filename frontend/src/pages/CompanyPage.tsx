@@ -17,7 +17,7 @@ import {
   Panel,
   PanelSkeleton,
   StateMessage,
-  InsiderEdgeScore,
+  CompanyScore,
   PriceChart,
   AnalystBrief,
   ExplainSignal,
@@ -134,16 +134,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
         ) : (
           <div className="ie-stack">
             <PanelBoundary label="Score">
-              {data.latest_signal ? (
-                <InsiderEdgeScore evidence={data.latest_signal} />
-              ) : (
-                <Panel title="InsiderEdge Score">
-                  <StateMessage title="No recent insider events">
-                    No recent qualifying insider event is available. No score
-                    has been invented.
-                  </StateMessage>
-                </Panel>
-              )}
+              <CompanyScore data={data} />
             </PanelBoundary>
 
             <div className="ie-grid">
@@ -231,6 +222,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                     </StateMessage>
                   ) : !prices.data?.prices.some(
                       (point) =>
+                        point.analysis_price !== null &&
                         Number.isFinite(point.analysis_price) &&
                         point.analysis_price > 0,
                     ) ? (

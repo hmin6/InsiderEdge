@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from app.quant.features import FEATURE_DEFINITIONS, build_event_features
+from app.services.events.buyers import BuyerEvidence
 
 
 def events_frame() -> pd.DataFrame:
@@ -64,12 +65,13 @@ def prices_frame(count: int = 121) -> pd.DataFrame:
 
 
 class EventFeatureTests(unittest.TestCase):
-    def features(self, event_frame=None, tx_frame=None, market_frame=None):
+    def features(self, event_frame=None, tx_frame=None, market_frame=None, buyer_evidence=None):
         return build_event_features(
             event_frame if event_frame is not None else events_frame(),
             tx_frame if tx_frame is not None else transactions_frame(),
             market_frame if market_frame is not None else prices_frame(),
             sector_etf_by_ticker={"ABC": "XLK"},
+            buyer_evidence=buyer_evidence,
         )
 
     def test_market_returns_volatility_drawdown_and_relative_features(self):
@@ -85,7 +87,10 @@ class EventFeatureTests(unittest.TestCase):
         self.assertAlmostEqual(row["sector_relative_return_30d"], row["prior_return_30d"] - (30 / 141))
 
     def test_event_aggregation_window_boundaries_and_ownership(self):
-        row = self.features().iloc[0]
+        tx = transactions_frame().assign(transaction_id=['t0', 't1', 't2', 't3', 't4'])
+        evidence = {key: BuyerEvidence((buyer,), 'synthetic transaction association')
+                    for key, buyer in zip(tx.transaction_id, ['owner1', 'owner1', 'owner2', 'owner3', 'future'])}
+        row = self.features(tx_frame=tx, buyer_evidence=evidence).iloc[0]
         self.assertEqual(row["aggregate_purchase_value"], 150.0)
         self.assertAlmostEqual(row["log_aggregate_purchase_value"], np.log(150.0))
         self.assertAlmostEqual(row["max_valid_ownership_change_pct"], 1.0)
@@ -97,6 +102,61 @@ class EventFeatureTests(unittest.TestCase):
         self.assertTrue(row["has_executive"])
         self.assertTrue(row["has_cfo"])
         self.assertEqual(row["role_bucket"], "Executive")
+
+    def test_missing_or_joint_names_never_establish_buyer_identity(self):
+        for names in [None, 'Alice', 'Alice | Bob']:
+            tx = transactions_frame().iloc[:1].assign(transaction_id='t0', insider_name=names)
+            row = self.features(tx_frame=tx).iloc[0]
+            for window in ('7d', '30d'):
+                self.assertTrue(pd.isna(row[f'unique_buyers_{window}']))
+                diagnostic = row['buyer_identity_diagnostics'][window]
+                self.assertEqual(diagnostic['status'], 'unknown')
+                self.assertFalse(diagnostic['canonical_identity_verified'])
+                self.assertEqual(diagnostic['unknown_transaction_ids'], ['t0'])
+                self.assertIn('transaction-associated evidence', diagnostic['reason'])
+
+    def test_supported_multiple_buyers_and_names_are_irrelevant(self):
+        tx = transactions_frame().iloc[:2].assign(transaction_id=['t0', 't1'], insider_name='Ambiguous | Names')
+        evidence = {'t0': BuyerEvidence(('owner1', 'owner2'), 'verified transaction-level source'),
+                    't1': BuyerEvidence(('owner1',), 'verified transaction-level source')}
+        row = self.features(tx_frame=tx, buyer_evidence=evidence).iloc[0]
+        self.assertEqual(row.unique_buyers_7d, 2)
+        self.assertEqual(row.unique_buyers_30d, 2)
+        self.assertTrue(row.buyer_identity_diagnostics['30d']['canonical_identity_verified'])
+        self.assertEqual(row.buyer_identity_diagnostics['30d']['evidence_sources'], ['verified transaction-level source'])
+
+    def test_partial_buyer_coverage_blocks_only_affected_window(self):
+        tx = transactions_frame().iloc[[0, 3]].assign(transaction_id=['recent', 'older'])
+        tx.loc[3, 'filing_date'] = '2024-03-10'
+        row = self.features(tx_frame=tx, buyer_evidence={
+            'recent': BuyerEvidence(('owner1',), 'verified source')}).iloc[0]
+        self.assertEqual(row.unique_buyers_7d, 1)
+        self.assertTrue(pd.isna(row.unique_buyers_30d))
+        self.assertEqual(row.buyer_identity_diagnostics['30d']['unknown_transaction_ids'], ['older'])
+
+    def test_empty_qualifying_window_is_genuine_zero(self):
+        tx = transactions_frame().iloc[:1].assign(transaction_id='old', filing_date='2024-01-01')
+        row = self.features(tx_frame=tx).iloc[0]
+        self.assertEqual(row.unique_buyers_7d, 0)
+        self.assertEqual(row.unique_buyers_30d, 0)
+        self.assertEqual(row.buyer_identity_diagnostics['30d']['status'], 'no_qualifying_transactions')
+
+    def test_invalid_buyer_evidence_remains_unknown(self):
+        tx = transactions_frame().iloc[:1].assign(transaction_id='t0')
+        for evidence in ['Alice | Bob', BuyerEvidence((), 'source'), BuyerEvidence(('owner',), ''),
+                         BuyerEvidence(('',), 'source')]:
+            row = self.features(tx_frame=tx, buyer_evidence={'t0': evidence}).iloc[0]
+            self.assertTrue(pd.isna(row.unique_buyers_30d))
+
+    def test_buyer_processing_is_idempotent_and_does_not_mutate_sources(self):
+        tx = transactions_frame().assign(transaction_id=['t0', 't1', 't2', 't3', 't4'])
+        before = tx.copy(deep=True)
+        evidence = {key: BuyerEvidence(('owner1',), 'verified source') for key in tx.transaction_id}
+        first = self.features(tx_frame=tx, buyer_evidence=evidence)
+        second = self.features(tx_frame=tx, buyer_evidence=evidence)
+        pd.testing.assert_frame_equal(first, second)
+        pd.testing.assert_frame_equal(tx, before)
+        self.assertEqual(first.iloc[0].unique_buyers_30d, 1)
 
     def test_multiple_raw_transactions_still_emit_one_ml_event_row(self):
         output = self.features()

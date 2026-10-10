@@ -71,21 +71,28 @@ service. No client prompt/body can override its evidence. It contains:
   current-date fundamental lookup. No SEC or market download occurs.
 - Explicit missing-data limitations, independent of Gemini's wording.
 
-Person 2 quant functions exist, but final statistics/prediction endpoints and
-complete persistence/provenance are not yet integrated. Current-event realized
-CAR5/30/90 are deliberately NOT sent, even if present in `signals`: future
-outcomes are not prediction-time evidence. Stored comparable CAR30 means,
-bootstrap intervals and randomization p-values are also withheld until their
-entire-outcome-before-information-date provenance can be verified. Their evidence
-fields are NULL with an explicit pending-provenance status. Pre-event stock/sector
-returns, drawdown, and held-out model metrics are unavailable. Stored scores and
-probabilities are forwarded as precomputed backend outputs, never recalculated.
+Statistics and prediction endpoints are integrated. AI assembly reuses the same
+validated persisted statistics read path: evidence must match the latest event,
+its information date, and the persisted Signal/model-version binding. The
+`signal_api_evidence_v1` snapshot is written by signal integration, which validates
+that comparator information and complete CAR30 outcomes precede the focal
+information date, and that market evidence is pre-event.
 
-Later Person 2 integration should replace only the assembly internals, using
-approved persisted outputs/statuses and enforcing the documented information and
-comparator-outcome boundaries. Do not feed a current event's realized return into
-its explanation as an information-time predictor. No public AI shape change is
-needed. Fundamentals retain actual duration; revenue is not implicitly TTM.
+Available comparator counts/cohort, mean CAR30, bootstrap interval, randomization
+p-value/statistical score and pre-event stock/sector returns, drawdown/dislocation
+score are forwarded without recalculation. Partial results retain their statuses;
+NULL and genuine zero remain distinct. Legacy snapshots without valid bindings
+withhold richer evidence and require an explicit validated rebuild. A newer
+unscored event never borrows an older snapshot. Limitations describe actual
+missing or partial evidence rather than unconditionally claiming integration is
+pending. Held-out metrics remain unavailable without a durable frozen artifact;
+validation metrics are never substituted.
+
+Current-event realized CAR5/30/90 are deliberately NOT sent, even if the read API
+can display those retrospective outcomes. They are not information-time
+predictors. Assembly performs no downloads, quant calculations, model fitting or
+persistence. No public AI shape change is needed. Fundamentals retain actual
+duration; revenue is not implicitly TTM.
 
 ## Generation and failure behavior
 
@@ -113,7 +120,10 @@ provider request. Database failure uses existing sanitized research-data 503.
 
 The brief is a controlled template from the SAME evidence, not another model
 call. It states event dates/counts, stored purchase value/buyer count and available
-IES/model probability, preserving unknowns and major limitations/diagnostics. It
+IES/model probability, validated historical statistics and pre-event market
+context, preserving unknowns and major limitations/diagnostics. Available
+historical evidence is retained even if the combined statistical score is
+unavailable; missing fields are stated individually. It
 does not use arbitrary source names or let the audio provider reason about quant
 data. It works independently of Gemini configuration or availability.
 

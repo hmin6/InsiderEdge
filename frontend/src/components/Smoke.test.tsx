@@ -63,7 +63,7 @@ test("6. Empty optional fields do not crash and 7. insufficient_data is displaye
     <StatisticsEvidence
       data={{
         ...DEV_MOCK_STATISTICS,
-        anomaly: { score: null, status: "insufficient_data" },
+        anomaly: { ...DEV_MOCK_STATISTICS.anomaly, score: null, status: "insufficient_data" },
         event_study: {
           car5: null,
           car30: null,
@@ -80,7 +80,7 @@ test("6. Empty optional fields do not crash and 7. insufficient_data is displaye
   );
   assert.match(emptyStatsHtml, /Anomaly evidence is unavailable/);
   assert.match(emptyStatsHtml, /Future CAR is not yet known/);
-  assert.match(emptyStatsHtml, /Comparable-event evidence is unavailable/);
+  assert.match(emptyStatsHtml, /Combined statistical score unavailable/);
 
   const insufficientPredHtml = renderToStaticMarkup(
     <PredictionEvidence
