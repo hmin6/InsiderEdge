@@ -1,3 +1,4 @@
+import { SnowflakeResearch } from "../components/SnowflakeResearch";
 import { useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
@@ -267,6 +268,10 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                   )}
                 </div>
               </Panel>
+            </PanelBoundary>
+
+            <PanelBoundary label="Snowflake research" key={`snowflake:${eventKey}`}>
+              <SnowflakeResearch ticker={data.ticker} />
             </PanelBoundary>
 
             {/* Row 5: AI Explanation & Audio Brief */}

@@ -12,6 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api.health import router
 from app.api.core import router as core_router
 from app.api.ai import router as ai_router
+from app.api.snowflake import router as snowflake_router
 
 
 def cors_origins():
@@ -57,6 +58,7 @@ def create_app():
     app.include_router(router)
     app.include_router(core_router)
     app.include_router(ai_router)
+    app.include_router(snowflake_router)
     return app
 
 
