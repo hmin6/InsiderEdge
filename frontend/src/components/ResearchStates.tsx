@@ -200,99 +200,99 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
           Status: {data.market.status}
         </p>
       </Panel>
-
-      <Panel title="Event Study & Statistical Evidence">
-        <div className="ie-metric-grid">
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.event_study.car5}`}
-          >
-            <div className="ie-metric-label">CAR5</div>
-            <div className="ie-metric-value">
-              {numeric(data.event_study.car5, true)}
-            </div>
-          </div>
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.event_study.car30}`}
-          >
-            <div className="ie-metric-label">CAR30</div>
-            <div className="ie-metric-value">
-              {numeric(data.event_study.car30, true)}
-            </div>
-          </div>
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.event_study.car90}`}
-          >
-            <div className="ie-metric-label">CAR90</div>
-            <div className="ie-metric-value">
-              {numeric(data.event_study.car90, true)}
-            </div>
-          </div>
-        </div>
-        <div className="ie-metric-grid">
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${v.comparable_event_count}`}
-          >
-            <div className="ie-metric-label">Comparable Events</div>
-            <div className="ie-metric-value">
-              {formatCount(v.comparable_event_count)}
-            </div>
-          </div>
-          <div className="ie-metric-card" title={`Raw value: ${v.mean_car30}`}>
-            <div className="ie-metric-label">Mean CAR30</div>
-            <div className="ie-metric-value">{numeric(v.mean_car30, true)}</div>
-          </div>
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${v.randomization_p_value}`}
-          >
-            <div className="ie-metric-label">P-Value</div>
-            <div className="ie-metric-value">
-              {formatPValue(v.randomization_p_value)}
-            </div>
-          </div>
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${v.statistical_score}`}
-          >
-            <div className="ie-metric-label">Statistical Score</div>
-            <div className="ie-metric-value">
-              {numeric(v.statistical_score)}
-            </div>
-          </div>
-        </div>
-
-        {(data.event_study.car30 === null ||
-          data.event_study.car90 === null) && (
-          <p className="ie-muted" style={{ marginTop: "16px" }}>
-            Unavailable horizons may need more completed trading sessions or
-            estimation history. Future CAR is not yet known.
-          </p>
-        )}
-        {v.statistical_score === null && (
-          <StateMessage title="Combined statistical score unavailable">
-            Bootstrap and randomization evidence have separate availability. Any
-            available comparable-event results remain visible above.
-          </StateMessage>
-        )}
-        <p className="ie-muted" style={{ marginTop: "16px" }}>
-          95% bootstrap interval:{" "}
-          {v.bootstrap_ci_95
-            ? `${numeric(v.bootstrap_ci_95.lower, true)} to ${numeric(v.bootstrap_ci_95.upper, true)}`
-            : "Unavailable"}
-        </p>
-        <p className="ie-muted" style={{ marginTop: "4px" }}>
-          Cohort: {v.cohort_definition || "Unavailable"} · Study Status:{" "}
-          {data.event_study.status} · Validation Status: {v.status}
-        </p>
-      </Panel>
     </div>
   );
 }
+export function EventStudyEvidence({ data }: { data: StatisticsResponse }) {
+  const v = data.statistical_validation;
+  return (
+    <Panel title="Event Study & Statistical Evidence">
+      <div className="ie-metric-grid">
+        <div
+          className="ie-metric-card"
+          title={`Raw value: ${data.event_study.car5}`}
+        >
+          <div className="ie-metric-label">CAR5</div>
+          <div className="ie-metric-value">
+            {numeric(data.event_study.car5, true)}
+          </div>
+        </div>
+        <div
+          className="ie-metric-card"
+          title={`Raw value: ${data.event_study.car30}`}
+        >
+          <div className="ie-metric-label">CAR30</div>
+          <div className="ie-metric-value">
+            {numeric(data.event_study.car30, true)}
+          </div>
+        </div>
+        <div
+          className="ie-metric-card"
+          title={`Raw value: ${data.event_study.car90}`}
+        >
+          <div className="ie-metric-label">CAR90</div>
+          <div className="ie-metric-value">
+            {numeric(data.event_study.car90, true)}
+          </div>
+        </div>
+      </div>
+      <div className="ie-metric-grid">
+        <div
+          className="ie-metric-card"
+          title={`Raw value: ${v.comparable_event_count}`}
+        >
+          <div className="ie-metric-label">Comparable Events</div>
+          <div className="ie-metric-value">
+            {formatCount(v.comparable_event_count)}
+          </div>
+        </div>
+        <div className="ie-metric-card" title={`Raw value: ${v.mean_car30}`}>
+          <div className="ie-metric-label">Mean CAR30</div>
+          <div className="ie-metric-value">{numeric(v.mean_car30, true)}</div>
+        </div>
+        <div
+          className="ie-metric-card"
+          title={`Raw value: ${v.randomization_p_value}`}
+        >
+          <div className="ie-metric-label">P-Value</div>
+          <div className="ie-metric-value">
+            {formatPValue(v.randomization_p_value)}
+          </div>
+        </div>
+        <div
+          className="ie-metric-card"
+          title={`Raw value: ${v.statistical_score}`}
+        >
+          <div className="ie-metric-label">Statistical Score</div>
+          <div className="ie-metric-value">{numeric(v.statistical_score)}</div>
+        </div>
+      </div>
 
+      {(data.event_study.car30 === null || data.event_study.car90 === null) && (
+        <p className="ie-muted" style={{ marginTop: "16px" }}>
+          Unavailable horizons may need more completed trading sessions or
+          estimation history. Future CAR is not yet known.
+        </p>
+      )}
+      {v.statistical_score === null && (
+        <StateMessage title="Combined statistical score unavailable">
+          Bootstrap and randomization evidence have separate availability. Any
+          available comparable-event results remain visible above.
+        </StateMessage>
+      )}
+      <p className="ie-muted" style={{ marginTop: "16px" }}>
+        95% bootstrap interval:{" "}
+        {v.bootstrap_ci_95
+          ? `${numeric(v.bootstrap_ci_95.lower, true)} to ${numeric(v.bootstrap_ci_95.upper, true)}`
+          : "Unavailable"}
+      </p>
+      <p className="ie-muted" style={{ marginTop: "4px" }}>
+        Cohort: {v.cohort_definition || "Unavailable"} · Study Status:{" "}
+        {data.event_study.status} · Validation Status: {v.status}
+      </p>
+    </Panel>
+  );
+}
 export function PredictionEvidence({ data }: { data: PredictionResponse }) {
   return (
     <Panel title="ML Prediction">

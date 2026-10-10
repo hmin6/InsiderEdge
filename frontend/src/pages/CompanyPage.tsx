@@ -22,6 +22,7 @@ import {
   AnalystBrief,
   ExplainSignal,
   PanelBoundary,
+  EventStudyEvidence,
   StatisticsEvidence,
   PredictionEvidence,
   numeric,
@@ -190,6 +191,14 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                     <PredictionEvidence data={prediction.data} />
                   )}
                 </PanelBoundary>
+
+                <PanelBoundary label="Event Study">
+                  {statistics.loading ? (
+                    <PanelSkeleton label="Loading event study" rows={4} />
+                  ) : statistics.error || !statistics.data ? null : (
+                    <EventStudyEvidence data={statistics.data} />
+                  )}
+                </PanelBoundary>
               </div>
             </div>
 
@@ -235,7 +244,10 @@ function CompanyResearch({ ticker }: { ticker: string }) {
               </Panel>
             </PanelBoundary>
 
-            <PanelBoundary label="Snowflake research" key={`snowflake:${eventKey}`}>
+            <PanelBoundary
+              label="Snowflake research"
+              key={`snowflake:${eventKey}`}
+            >
               <SnowflakeResearch ticker={data.ticker} />
             </PanelBoundary>
 
@@ -245,12 +257,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                 <ExplainSignal
                   ticker={data.ticker}
                   evidenceKey={eventKey}
-                  evidence={
-                    <p className="ie-muted" style={{ marginBottom: "16px" }}>
-                      AI interprets the quantitative evidence above; it does not
-                      calculate the signal.
-                    </p>
-                  }
+                  evidence={null}
                 />
               </PanelBoundary>
 
@@ -258,6 +265,13 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                 <AnalystBrief ticker={data.ticker} evidenceKey={eventKey} />
               </PanelBoundary>
             </div>
+            <p
+              className="ie-muted"
+              style={{ textAlign: "center", paddingTop: "8px" }}
+            >
+              AI interprets the quantitative evidence above; it does not
+              calculate the signal.
+            </p>
           </div>
         )}
       </PageContainer>

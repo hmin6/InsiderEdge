@@ -948,3 +948,29 @@ h3 {
     transition: none;
   }
 }
+
+.ie-metric-card[data-title]::after {
+  content: attr(data-title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ie-nav);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0;
+  visibility: hidden;
+  margin-bottom: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  transition: opacity 150ms ease, visibility 150ms ease;
+}
+
+.ie-metric-card[data-title]:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
