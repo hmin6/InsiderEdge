@@ -884,7 +884,7 @@ export default function RadarPage() {
               )}
               {tableRows.map(({ item, section }) => section ? (
                 <tr key={`section-${section}`} className="ie-radar-section-row">
-                  <th colSpan={8} scope="rowgroup">{section}</th>
+                  <th colSpan={8} scope="rowgroup" style={section === "Unavailable" ? undefined : { textAlign: "center" }}>{section}</th>
                 </tr>
               ) : item && (
                 <tr key={`${item.ticker}-${item.public_event_day}`}>
