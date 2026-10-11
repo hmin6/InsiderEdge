@@ -89,7 +89,6 @@ def test_malformed_response(monkeypatch):
     *[({**CONTENT, 'event_context': value}, 'wrong_type')
       for value in ('PRIVATE_GENERATED_TEXT', {}, None, [1], [[]])],
     ({**CONTENT, 'event_context': []}, 'empty_required_list'),
-    *[({**CONTENT, field: ['PRIVATE_GENERATED_TEXT'] * 7}, field) for field in CONTENT],
     *[({**CONTENT, field: [value]}, field)
       for field in CONTENT for value in ('   ', 'x' * 701)],
     ([], 'wrong_type'),
@@ -175,6 +174,64 @@ def test_schema_constraint_metadata_first_error_only():
 def test_schema_constraint_boundary_valid(field):
     content = {**CONTENT, field: ['x' * 700] * 6}
     assert Context.model_validate(content).model_dump() == content
+
+
+@pytest.mark.parametrize('field', list(CONTENT))
+@pytest.mark.parametrize('count', [1, 5, 6, 7, 9])
+def test_context_list_overflow_normalization(monkeypatch, caplog, field, count):
+    from copy import deepcopy
+    from app.services.snowflake_research import normalize_context_lists
+    configure(monkeypatch)
+    # Distinct, nonnumeric text verifies order and exact item preservation.
+    values = [f'Persisted evidence context {letter}.' for letter in 'abcdefghi'][:count]
+    content = {**CONTENT, field: values}
+    original = deepcopy(content)
+    expected = {**CONTENT, field: values[:6]}
+    assert normalize_context_lists(content) == expected
+    assert content == original
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body(content), 'application/json'
+    result = research(EVIDENCE, SnowflakeProvider())
+    assert result.status == 'available'
+    assert result.context.model_dump() == expected
+    assert set(result.model_dump()) == {'ticker', 'research_event_id', 'provider', 'model',
+                                       'status', 'context', 'provenance', 'limitations'}
+    assert not caplog.records
+
+
+@pytest.mark.parametrize('field', list(CONTENT))
+@pytest.mark.parametrize('item,reason', [
+    ({'PRIVATE_KEY': 'PRIVATE_TEXT'}, 'schema_validation_failed'),
+    ('   ', 'schema_validation_failed'), ('x' * 701, 'schema_validation_failed'),
+    ('Unknown numeric claim 987654321.', 'numeric_grounding_rejected'),
+    ('The filing date was 1999-12-31.', 'numeric_grounding_rejected'),
+    ('Buy this stock.', 'safety_language_rejected'),
+])
+def test_overflow_retained_items_still_validate(monkeypatch, caplog, field, item, reason):
+    configure(monkeypatch)
+    content = {**CONTENT, field: [item] + ['Persisted evidence.'] * 6}
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body(content), 'application/json'
+    result = research(EVIDENCE, SnowflakeProvider())
+    assert result.status == 'unavailable' and result.context is None
+    assert f'reason={reason}' in caplog.text
+    if reason == 'schema_validation_failed':
+        assert 'schema_field=' in caplog.text and 'schema_constraint=' in caplog.text
+    for private in ('PRIVATE_KEY', 'PRIVATE_TEXT', 'Buy this stock.', 'synthetic-test-token'):
+        assert private not in caplog.text
+
+
+@pytest.mark.parametrize('content', [
+    None, [], 'text', {}, {**CONTENT, 'event_context': None},
+    {**CONTENT, 'event_context': 'text'}, {**CONTENT, 'event_context': {}},
+    {**CONTENT, 'event_context': []}, {**CONTENT, 'unexpected': ['text'] * 7},
+])
+def test_context_normalization_does_not_repair_structure(content):
+    from pydantic import ValidationError
+    from app.services.snowflake_research import normalize_context_lists
+    assert normalize_context_lists(content) == content
+    with pytest.raises(ValidationError):
+        Context.model_validate(normalize_context_lists(content))
 
 
 @pytest.mark.parametrize('origin', ['http://test.snowflakecomputing.com', 'https://evil.test',
