@@ -77,10 +77,18 @@ export function numeric(value: number | null | undefined, percent = false) {
   return percent ? `${(value * 100).toFixed(2)}%` : value.toFixed(2);
 }
 
-function MetricCard({ 
-  label, value, raw, explanation, context 
-}: { 
-  label: string, value: React.ReactNode, raw: any, explanation: string, context: string 
+function MetricCard({
+  label,
+  value,
+  raw,
+  explanation,
+  context,
+}: {
+  label: string;
+  value: React.ReactNode;
+  raw: any;
+  explanation: string;
+  context: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   return (
@@ -88,27 +96,56 @@ function MetricCard({
       type="button"
       className="ie-metric-card"
       onClick={() => setIsOpen(!isOpen)}
-      style={{ 
-        textAlign: "left", width: "100%", height: "100%", 
-        display: "flex", flexDirection: "column", alignItems: "flex-start",
-        border: isOpen ? "1px solid var(--ie-primary)" : undefined
+      style={{
+        textAlign: "left",
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        border: isOpen ? "1px solid var(--ie-primary)" : undefined,
       }}
       aria-expanded={isOpen}
     >
-      <div className="ie-metric-label" style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+      <div
+        className="ie-metric-label"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          width: "100%",
+        }}
+      >
         {label}
-        <span style={{ opacity: 0.5, fontSize: "10px" }}>{isOpen ? "▼" : "ⓘ"}</span>
+        <span style={{ opacity: 0.5, fontSize: "10px" }}>
+          {isOpen ? "▼" : "ⓘ"}
+        </span>
       </div>
       <div className="ie-metric-value">{value}</div>
-      
+
       {isOpen && (
-        <div className="ie-metric-explanation ie-reveal" style={{ 
-          marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--ie-border)", 
-          fontSize: "12.5px", color: "var(--ie-muted)", fontWeight: 400, lineHeight: 1.4 
-        }}>
-          <p style={{ marginBottom: "8px" }}><strong style={{color: "var(--ie-text)"}}>Meaning:</strong> {explanation}</p>
-          <p style={{ marginBottom: "8px" }}><strong style={{color: "var(--ie-text)"}}>Context:</strong> {context}</p>
-          <p style={{ fontSize: "11px", opacity: 0.6 }}>Raw value: {String(raw ?? "null")}</p>
+        <div
+          className="ie-metric-explanation ie-reveal"
+          style={{
+            marginTop: "12px",
+            paddingTop: "12px",
+            borderTop: "1px solid var(--ie-border)",
+            fontSize: "12.5px",
+            color: "var(--ie-muted)",
+            fontWeight: 400,
+            lineHeight: 1.4,
+          }}
+        >
+          <p style={{ marginBottom: "8px" }}>
+            <strong style={{ color: "var(--ie-text)" }}>Meaning:</strong>{" "}
+            {explanation}
+          </p>
+          <p style={{ marginBottom: "8px" }}>
+            <strong style={{ color: "var(--ie-text)" }}>Context:</strong>{" "}
+            {context}
+          </p>
+          <p style={{ fontSize: "11px", opacity: 0.6 }}>
+            Raw value: {String(raw ?? "null")}
+          </p>
         </div>
       )}
     </button>
@@ -138,43 +175,51 @@ export function CompanyScore({ data }: { data: CompanyResponse }) {
 
 export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
   return (
-    <div className="ie-stack">
-      <Panel title="Anomaly & Activity Evidence">
+    <div className="ie-stack" style={{ height: "100%" }}>
+      <Panel title="Anomaly & Activity Evidence" style={{ flex: 1 }}>
         <div className="ie-metric-grid">
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.anomaly.score}`}
-          >
-            <div className="ie-metric-label">Anomaly Score</div>
-            <div className="ie-metric-value">{numeric(data.anomaly.score)}</div>
-          </div>
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.activity.score}`}
-          >
-            <div className="ie-metric-label">Activity Score</div>
-            <div className="ie-metric-value">
-              {numeric(data.activity.score)}
-            </div>
-          </div>
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.anomaly.mahalanobis_distance}`}
-          >
-            <div className="ie-metric-label">Mahalanobis Distance</div>
-            <div className="ie-metric-value">
-              {numeric(data.anomaly.mahalanobis_distance)}
-            </div>
-          </div>
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.activity.rate_ratio}`}
-          >
-            <div className="ie-metric-label">Purchase Rate Ratio</div>
-            <div className="ie-metric-value">
-              {numeric(data.activity.rate_ratio)}
-            </div>
-          </div>
+          <MetricCard
+            label="Anomaly Score"
+            value={numeric(data.anomaly.score)}
+            raw={data.anomaly.score}
+            explanation="Percentile ranking of how unusual the insider buying size and market conditions are relative to historical baselines."
+            context=">80 is considered highly anomalous and statistically rare."
+          />
+          <MetricCard
+            label="Activity Score"
+            value={numeric(data.activity.score)}
+            raw={data.activity.score}
+            explanation="Percentile ranking of clustered buying intensity within a 30-day window."
+            context="Higher scores indicate strong, coordinated insider conviction."
+          />
+          <MetricCard
+            label="Mahalanobis Dist"
+            value={numeric(data.anomaly.mahalanobis_distance)}
+            raw={data.anomaly.mahalanobis_distance}
+            explanation="A multi-dimensional measure of how far this event's features deviate from the norm."
+            context=">2.5 typically flags a significant outlier."
+          />
+          <MetricCard
+            label="Purchase Rate Ratio"
+            value={numeric(data.activity.rate_ratio)}
+            raw={data.activity.rate_ratio}
+            explanation="Current 30-day buying rate divided by the historical baseline rate."
+            context=">1.0 means insiders are buying faster than usual."
+          />
+          <MetricCard
+            label="Recent Rate"
+            value={numeric(data.activity.recent_purchase_rate)}
+            raw={data.activity.recent_purchase_rate}
+            explanation="Average number of insider purchase events per day over the last 30 days."
+            context="Compared against historical rates to detect acceleration."
+          />
+          <MetricCard
+            label="Buyers (30d)"
+            value={formatCount(data.activity.buyers_30d)}
+            raw={data.activity.buyers_30d}
+            explanation="Number of unique executives or directors buying in the last 30 days."
+            context="Multiple buyers (clusters) provide much stronger signals than solo buyers."
+          />
         </div>
 
         {data.anomaly.score === null && (
@@ -194,44 +239,36 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
         </p>
       </Panel>
 
-      <Panel title="Market Dislocation Evidence">
+      <Panel title="Market Dislocation Evidence" style={{ flex: 1 }}>
         <div className="ie-metric-grid">
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.market.stock_return_90d}`}
-          >
-            <div className="ie-metric-label">Stock Return (90d)</div>
-            <div className="ie-metric-value">
-              {numeric(data.market.stock_return_90d, true)}
-            </div>
-          </div>
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.market.sector_return_90d}`}
-          >
-            <div className="ie-metric-label">Sector Return (90d)</div>
-            <div className="ie-metric-value">
-              {numeric(data.market.sector_return_90d, true)}
-            </div>
-          </div>
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.market.drawdown}`}
-          >
-            <div className="ie-metric-label">Drawdown</div>
-            <div className="ie-metric-value">
-              {numeric(data.market.drawdown, true)}
-            </div>
-          </div>
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.market.dislocation_score}`}
-          >
-            <div className="ie-metric-label">Dislocation Score</div>
-            <div className="ie-metric-value">
-              {numeric(data.market.dislocation_score)}
-            </div>
-          </div>
+          <MetricCard
+            label="Stock Return (90d)"
+            value={numeric(data.market.stock_return_90d, true)}
+            raw={data.market.stock_return_90d}
+            explanation="Price performance over the prior 90 trading sessions."
+            context="Used to identify if the stock is being bought into severe weakness."
+          />
+          <MetricCard
+            label="Sector Return (90d)"
+            value={numeric(data.market.sector_return_90d, true)}
+            raw={data.market.sector_return_90d}
+            explanation="Average performance of the company's sector over the last 90 sessions."
+            context="Contextualizes whether a stock drop is idiosyncratic or sector-wide."
+          />
+          <MetricCard
+            label="Drawdown"
+            value={numeric(data.market.drawdown, true)}
+            raw={data.market.drawdown}
+            explanation="The percentage drop from the stock's highest price in the last 90 days."
+            context="Closer to -20% or worse indicates significant market dislocation."
+          />
+          <MetricCard
+            label="Dislocation Score"
+            value={numeric(data.market.dislocation_score)}
+            raw={data.market.dislocation_score}
+            explanation="A 0-100 score blending the sector performance gap and recent drawdown."
+            context="High scores mean the stock is beaten down relative to peers, a classic value setup."
+          />
         </div>
         <p className="ie-muted" style={{ marginTop: "16px" }}>
           Pre-event market context; unavailable observations remain unknown.
@@ -241,6 +278,7 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
     </div>
   );
 }
+
 export function EventStudyEvidence({ data }: { data: StatisticsResponse }) {
   const v = data.statistical_validation;
   return (
