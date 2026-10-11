@@ -23,7 +23,6 @@ import {
   EventStudyEvidence,
   StatisticsEvidence,
   PredictionEvidence,
-  numeric,
 } from "../components";
 
 export default function CompanyPage() {
