@@ -4,6 +4,7 @@ import type { CompanyResponse, RadarItem } from "../types/api";
 import type { StatisticsResponse, PredictionResponse } from "../types/research";
 import { Panel, StateMessage } from "./ui";
 import { InsiderEdgeScore } from "./InsiderEdgeScore";
+import { NOT_SCORED_EXPLANATION } from "./SignalAvailability";
 
 export type RadarSortKey =
   | "default"
@@ -159,10 +160,8 @@ export function CompanyScore({ data }: { data: CompanyResponse }) {
     <Panel title="InsiderEdge Score">
       {data.latest_public_event_day !== null ? (
         <StateMessage title="Not scored">
-          No score has been generated for this research event. A research event
-          is available for {data.latest_public_event_day}, but no matching
-          research-priority signal is available. Missing evidence is not a zero
-          score.
+          {NOT_SCORED_EXPLANATION} A research event is available for{' '}
+          {data.latest_public_event_day}. Missing evidence is not a zero score.
         </StateMessage>
       ) : (
         <StateMessage title="No research events">

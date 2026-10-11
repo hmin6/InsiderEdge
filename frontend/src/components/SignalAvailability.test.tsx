@@ -7,7 +7,7 @@ import { DEV_MOCK_RADAR, DEV_MOCK_COMPANY } from '../api/mocks';
 import type { AvailabilityStatus } from '../types/api';
 
 for (const [status, description] of [
-  ['not_scored', 'No score has been generated'],
+  ['not_scored', 'No persisted Signal is available'],
   ['insufficient_data', 'The scoring process ran'],
   ['partial', 'approved subset'],
   ['complete', 'All required components'],
@@ -101,3 +101,21 @@ test('all metric sorting uses raw values and leaves unavailable values last in b
     assert.deepEqual(rankRadar(rows, { sortKey: sortKey as keyof typeof fields, direction: 'desc' }).map(row => row.ticker), ['HIGH', 'LOW', 'ZERO', 'MISSING']);
   }
 });
+
+for (const day of ['2020-03-23', '2025-12-02', '2026-01-14', '2026-10-02']) {
+  test(`unscored event ${day} has no inferred historical exclusion`, () => {
+    const evidence = { ...DEV_MOCK_RADAR.items[0], public_event_day: day,
+      availability_status: 'not_scored' as const, score_status: 'insufficient_data' as const,
+      insider_edge_score: null, unavailable_components: ['A', 'C', 'M', 'S', 'D'] };
+    for (const html of [
+      renderToStaticMarkup(<SignalAvailability evidence={evidence} />),
+      renderToStaticMarkup(<CompanyScore data={{ ...DEV_MOCK_COMPANY, latest_public_event_day: day, latest_signal: null }} />),
+    ]) {
+      assert.match(html, /Not scored/);
+      assert.match(html, /No persisted Signal is available/);
+      assert.match(html, /reason has not been verified/);
+      assert.match(html, /does not establish a historical eligibility exclusion/);
+      assert.doesNotMatch(html, /No score has been generated|The scoring process ran|Unavailable components:/);
+    }
+  });
+}
