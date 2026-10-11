@@ -111,10 +111,9 @@ const MascotTooltip = ({
 
 const tourSteps: Step[] = [
   {
-    target: "body",
-    placement: "center",
-    content:
-      "Welcome to InsiderEdge! Let me show you how to read this institutional-grade quantitative research.",
+    target: ".ie-product-header", 
+    placement: "bottom",
+    content: "Welcome to InsiderEdge! Let me show you how to read this institutional-grade quantitative research.",
   },
   {
     target: ".tour-score-panel",
