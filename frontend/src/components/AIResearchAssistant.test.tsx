@@ -326,3 +326,92 @@ test('audio completed at production-like 30.3s remains playable after the deadli
     assert.equal(calls.length, 3);
   }, pending.fetcher);
 });
+
+
+function pendingGemini() {
+  let signal: AbortSignal;
+  let snowflakeSignal: AbortSignal;
+  let complete!: (response: Response) => void;
+  const fetcher: typeof fetch = async (url, init) => {
+    if (endpoint(String(url)) !== 'explain') {
+      snowflakeSignal = init!.signal!;
+      return response(String(url), init);
+    }
+    signal = init!.signal!;
+    return new Promise<Response>((resolve, reject) => {
+      complete = resolve;
+      signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    });
+  };
+  return { fetcher, get signal() { return signal; }, get snowflakeSignal() { return snowflakeSignal; },
+    complete() { complete(Response.json(fixture.gemini_explanation)); } };
+}
+
+test('Gemini survives Snowflake completion, rerenders and the old deadline; aborts at exactly 60s', async () => {
+  const pending = pendingGemini();
+  await harness(async (view, calls) => {
+    const clock = audioClock();
+    await click(view, 'Generate AI Research');
+    assert.equal(pending.signal.aborted, false);
+    assert.ok(content(view).includes('Ready')); // Snowflake has completed independently.
+    assert.ok(button(view, 'Generating AI Research...').props.disabled);
+    act(() => view.update(<AIResearchAssistant ticker="AAPL" evidenceKey="2026-10-02" />));
+    assert.equal(pending.signal.aborted, false);
+    act(() => clock.advance(19_999));
+    assert.equal(pending.signal.aborted, false);
+    act(() => clock.advance(1));
+    assert.equal(pending.signal.aborted, false);
+    act(() => clock.advance(39_999));
+    assert.equal(pending.signal.aborted, false);
+    assert.ok(button(view, 'Generating AI Research...'));
+    await act(async () => { clock.advance(1); await new Promise(resolve => setTimeout(resolve, 0)); });
+    assert.equal(pending.signal.aborted, true);
+    assert.equal(pending.snowflakeSignal.aborted, false);
+    assert.equal(summaries(view).length, 1);
+    assert.ok(content(view).includes(fixture.snowflake_context.event_context[0]));
+    assert.ok(content(view).includes('Quantitative AI interpretation was unavailable.'));
+    assert.equal(calls.length, 2);
+  }, pending.fetcher);
+});
+
+test('Gemini success at 25 seconds contributes to Research Summary and clears its deadline', async () => {
+  const pending = pendingGemini();
+  await harness(async (view, calls) => {
+    const clock = audioClock();
+    await click(view, 'Generate AI Research');
+    const generate = button(view, 'Generating AI Research...');
+    act(() => { generate.props.onClick(); generate.props.onClick(); });
+    assert.equal(calls.length, 2);
+    act(() => clock.advance(25_000));
+    assert.equal(pending.signal.aborted, false);
+    await act(async () => { pending.complete(); await new Promise(resolve => setTimeout(resolve, 0)); });
+    assert.equal(summaries(view).length, 1);
+    assert.ok(content(view).includes(fixture.gemini_explanation.why_flagged[0]));
+    assert.ok(content(view).includes(fixture.snowflake_context.event_context[0]));
+    assert.ok(!content(view).includes('Quantitative AI interpretation was unavailable.'));
+    act(() => clock.advance(60_000));
+    assert.equal(pending.signal.aborted, false);
+    assert.equal(calls.length, 2);
+  }, pending.fetcher);
+});
+
+for (const reset of ['unmount', 'company', 'event']) {
+  test(`${reset} immediately aborts stale Gemini despite its longer deadline`, async () => {
+    const pending = pendingGemini();
+    await harness(async (view) => {
+      const clock = audioClock();
+      await click(view, 'Generate AI Research');
+      const staleSignal = pending.signal;
+      await act(async () => {
+        if (reset === 'unmount') view.unmount();
+        else view.update(<AIResearchAssistant ticker={reset === 'company' ? 'BRK.B' : 'AAPL'}
+          evidenceKey={reset === 'event' ? '2026-10-05' : '2026-10-02'} />);
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
+      assert.equal(staleSignal.aborted, true);
+      await act(async () => { pending.complete(); await new Promise(resolve => setTimeout(resolve, 0)); });
+      act(() => clock.advance(60_000));
+      assert.ok(!content(view).includes(fixture.gemini_explanation.why_flagged[0]));
+    }, pending.fetcher);
+  });
+}

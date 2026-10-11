@@ -3,6 +3,8 @@ import { API_BASE_URL } from '../api/base';
 import { requestSnowflake } from '../api/snowflake';
 import { mockExplanation, requestExplanation } from '../api/explain';
 
+const GEMINI_RESEARCH_TIMEOUT_MS = 60_000;
+
 export type ResearchController<T> = {
   state: 'idle' | 'pending' | 'success' | 'error';
   result: T | null;
@@ -53,7 +55,7 @@ export function useGeminiResearch(ticker: string) {
     const mock = geminiMockEnabled();
     return mock ? Promise.resolve(mockExplanation(ticker)) : requestExplanation(ticker, signal, API_BASE_URL);
   }, [ticker]);
-  return useResearchRequest(load, 20000);
+  return useResearchRequest(load, GEMINI_RESEARCH_TIMEOUT_MS);
 }
 
 export function geminiMockEnabled() {
