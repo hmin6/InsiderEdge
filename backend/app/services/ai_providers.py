@@ -21,6 +21,7 @@ class NoRedirect(HTTPRedirectHandler):
 
 
 def post(url, headers, payload, timeout, limit):
+    response_failure_kind = None
     try:
         request = Request(url, data=json.dumps(payload, allow_nan=False).encode('utf-8'),
                           headers={'Content-Type': 'application/json', **headers}, method='POST')
@@ -28,6 +29,7 @@ def post(url, headers, payload, timeout, limit):
             body = response.read(limit + 1)
             mime = response.headers.get_content_type()
         if not body or len(body) > limit:
+            response_failure_kind = 'empty_body' if not body else 'oversized_body'
             raise ValueError
         return body, mime
     except Exception as error:
@@ -41,7 +43,9 @@ def post(url, headers, payload, timeout, limit):
             category = 'provider_response_invalid'
         else:
             category = 'unexpected_error'
-        raise ProviderFailure('AI provider request unavailable', reason_category=category) from None
+        failure = ProviderFailure('AI provider request unavailable', reason_category=category)
+        failure.response_failure_kind = response_failure_kind
+        raise failure from None
 
 
 def configuration(key_name, model_name, default_model, timeout_name):
@@ -86,15 +90,31 @@ class GeminiProvider:
 
 class ElevenLabsProvider:
     def synthesize(self, transcript):
-        key, model, timeout = configuration('ELEVENLABS_API_KEY', 'ELEVENLABS_MODEL',
-                                            'eleven_multilingual_v2', 'ELEVENLABS_TIMEOUT_SECONDS')
+        try:
+            key, model, timeout = configuration('ELEVENLABS_API_KEY', 'ELEVENLABS_MODEL',
+                                                'eleven_multilingual_v2', 'ELEVENLABS_TIMEOUT_SECONDS')
+        except ProviderFailure:
+            raise ProviderFailure('AI provider configuration unavailable',
+                                  reason_category='configuration_unavailable') from None
         voice = os.environ.get('ELEVENLABS_VOICE_ID', '').strip()
         if not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', voice):
-            raise ProviderFailure('Audio provider configuration unavailable')
-        body, mime = post(f'https://api.elevenlabs.io/v1/text-to-speech/{voice}?output_format=mp3_44100_128',
-                          {'xi-api-key': key, 'Accept': 'audio/mpeg'},
-                          {'text': transcript, 'model_id': model}, timeout, 5 * 1024 * 1024)
+            raise ProviderFailure('Audio provider configuration unavailable',
+                                  reason_category='configuration_unavailable')
+        try:
+            body, mime = post(f'https://api.elevenlabs.io/v1/text-to-speech/{voice}?output_format=mp3_44100_128',
+                              {'xi-api-key': key, 'Accept': 'audio/mpeg'},
+                              {'text': transcript, 'model_id': model}, timeout, 5 * 1024 * 1024)
+        except ProviderFailure as error:
+            if getattr(error, 'response_failure_kind', None) == 'empty_body':
+                error.reason_category = 'empty_audio'
+            elif error.reason_category == 'provider_response_invalid':
+                error.reason_category = 'provider_invalid_response'
+            raise
+        if isinstance(body, bytes) and not body:
+            raise ProviderFailure('Audio provider response unavailable', reason_category='empty_audio')
+        if not isinstance(body, bytes) or len(body) > 5 * 1024 * 1024:
+            raise ProviderFailure('Audio provider response unavailable', reason_category='provider_invalid_response')
         if mime != 'audio/mpeg' or not (body.startswith(b'ID3') or
                 len(body) > 1 and body[0] == 0xff and body[1] & 0xe0 == 0xe0):
-            raise ProviderFailure('Audio provider response unavailable')
+            raise ProviderFailure('Audio provider response unavailable', reason_category='provider_invalid_response')
         return body

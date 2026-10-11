@@ -48,4 +48,5 @@ def research_audio(request: research_document.ResearchAudioRequest = Body(),
         raise HTTPException(status_code=413, detail='Research exceeds audio size limit')
     if not research_document.verify(request, evidence, snowflake_evidence):
         raise HTTPException(status_code=403, detail='Research verification unavailable; regenerate AI research')
-    return research_document.synthesize(evidence.ticker, request.document, provider)
+    return research_document.synthesize(evidence.ticker, request.document, provider,
+                                        research_event_id=request.research_event_id)
