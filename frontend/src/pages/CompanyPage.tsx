@@ -1,7 +1,7 @@
 import { AIResearchAssistant } from "../components/AIResearchAssistant";
 import { useCallback, useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Joyride, Step, TooltipRenderProps } from "react-joyride";
+import { Joyride, TooltipRenderProps } from "react-joyride";
 import {
   fetchCompany,
   fetchPrices,
@@ -269,7 +269,9 @@ function CompanyResearch({ ticker }: { ticker: string }) {
             steps: tourSteps,
             run: runTour,
             continuous: true,
+            disableBeacon: true,
             showSkipButton: true,
+            beaconComponent: () => null,
             tooltipComponent: MascotTooltip,
             callback: handleJoyrideCallback,
             disableScrollParentFix: true,
