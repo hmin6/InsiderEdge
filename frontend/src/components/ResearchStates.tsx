@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { formatCount, formatPValue } from "../utils/format";
 import type { CompanyResponse, RadarItem } from "../types/api";
 import type { StatisticsResponse, PredictionResponse } from "../types/research";
@@ -74,6 +75,44 @@ export function rankRadar(
 export function numeric(value: number | null | undefined, percent = false) {
   if (value == null || !Number.isFinite(value)) return "Unavailable";
   return percent ? `${(value * 100).toFixed(2)}%` : value.toFixed(2);
+}
+
+function MetricCard({ 
+  label, value, raw, explanation, context 
+}: { 
+  label: string, value: React.ReactNode, raw: any, explanation: string, context: string 
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <button
+      type="button"
+      className="ie-metric-card"
+      onClick={() => setIsOpen(!isOpen)}
+      style={{ 
+        textAlign: "left", width: "100%", height: "100%", 
+        display: "flex", flexDirection: "column", alignItems: "flex-start",
+        border: isOpen ? "1px solid var(--ie-primary)" : undefined
+      }}
+      aria-expanded={isOpen}
+    >
+      <div className="ie-metric-label" style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+        {label}
+        <span style={{ opacity: 0.5, fontSize: "10px" }}>{isOpen ? "▼" : "ⓘ"}</span>
+      </div>
+      <div className="ie-metric-value">{value}</div>
+      
+      {isOpen && (
+        <div className="ie-metric-explanation ie-reveal" style={{ 
+          marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--ie-border)", 
+          fontSize: "12.5px", color: "var(--ie-muted)", fontWeight: 400, lineHeight: 1.4 
+        }}>
+          <p style={{ marginBottom: "8px" }}><strong style={{color: "var(--ie-text)"}}>Meaning:</strong> {explanation}</p>
+          <p style={{ marginBottom: "8px" }}><strong style={{color: "var(--ie-text)"}}>Context:</strong> {context}</p>
+          <p style={{ fontSize: "11px", opacity: 0.6 }}>Raw value: {String(raw ?? "null")}</p>
+        </div>
+      )}
+    </button>
+  );
 }
 
 export function CompanyScore({ data }: { data: CompanyResponse }) {
