@@ -135,6 +135,95 @@ def test_audio_failure_keeps_exact_document_transcript(generated):
     assert gemini.generate.call_count == snowflake.generate.call_count == 1
 
 
+@pytest.mark.parametrize('category,expected', [
+    ('provider_timeout', 'provider_timeout'), ('provider_http_error', 'provider_http_error'),
+    ('provider_invalid_response', 'provider_invalid_response'), ('empty_audio', 'empty_audio'),
+    ('configuration_unavailable', 'configuration_unavailable'), ('PRIVATE_CATEGORY', 'other'),
+])
+def test_safe_audio_failure_diagnostic(generated, caplog, category, expected):
+    client, _, _, _, audio, request = generated
+    audio.synthesize.side_effect = ProviderFailure('PRIVATE_EXCEPTION', reason_category=category)
+    response = client.post('/api/companies/AAPL/research-audio', json=request)
+    assert response.status_code == 200
+    result = response.json()
+    assert result == dict(ticker='AAPL', status='audio_unavailable', audio_base64=None,
+                         audio_mime_type=None, transcript=rd.script(
+                             'AAPL', rd.ResearchDocument.model_validate(request['document'])))
+    records = [r for r in caplog.records if r.name == rd.__name__]
+    assert len(records) == 1 and records[0].exc_info is None
+    assert records[0].getMessage() == (
+        'Research audio unavailable ticker=AAPL research_event_id=AAPL:2026-10-02 '
+        f'audio_reason={expected}')
+    for private in ('PRIVATE_EXCEPTION', 'PRIVATE_CATEGORY', result['transcript'],
+                    'Authorization', 'xi-api-key', 'audio_base64', 'https://'):
+        assert private not in records[0].getMessage()
+
+
+@pytest.mark.parametrize('audio_value,expected', [(b'', 'empty_audio'),
+    (None, 'provider_invalid_response'), (b'x' * (5 * 1024 * 1024 + 1), 'provider_invalid_response')],
+    ids=['empty', 'wrong_type', 'oversized'])
+def test_audio_result_validation_diagnostic(generated, caplog, audio_value, expected):
+    client, _, _, _, audio, request = generated
+    audio.synthesize.return_value = audio_value
+    response = client.post('/api/companies/AAPL/research-audio', json=request)
+    assert response.status_code == 200 and response.json()['status'] == 'audio_unavailable'
+    assert f'audio_reason={expected}' in caplog.text
+
+
+def test_success_and_verification_failure_do_not_log_audio_fallback(generated, caplog):
+    client, _, _, _, audio, request = generated
+    assert client.post('/api/companies/AAPL/research-audio', json=request).json()['status'] == 'ok'
+    audio.synthesize.reset_mock()
+    rd.validated_research.entries.clear()
+    assert client.post('/api/companies/AAPL/research-audio', json=request).status_code == 403
+    audio.synthesize.assert_not_called()
+    assert 'audio_reason=' not in caplog.text
+
+
+@pytest.mark.parametrize('case,expected', [
+    ('timeout', 'provider_timeout'), ('http', 'provider_http_error'),
+    ('redirect', 'provider_http_error'), ('mime', 'provider_invalid_response'),
+    ('signature', 'provider_invalid_response'), ('oversize', 'provider_invalid_response'),
+    ('empty', 'empty_audio'), ('configuration', 'configuration_unavailable'),
+    ('voice', 'configuration_unavailable'), ('unknown', 'other'),
+])
+def test_real_audio_adapter_safe_diagnostics(generated, monkeypatch, caplog, case, expected):
+    from urllib.error import HTTPError
+    from unittest.mock import MagicMock
+    from app.api.ai import get_elevenlabs
+    from app.services import ai_providers
+    from test_ai_services import REAL_POST
+    client, _, _, _, _, request = generated
+    client.app.dependency_overrides[get_elevenlabs] = ai_providers.ElevenLabsProvider
+    monkeypatch.setenv('ELEVENLABS_API_KEY', 'PRIVATE_API_KEY')
+    monkeypatch.setenv('ELEVENLABS_VOICE_ID', 'PRIVATE_VOICE')
+    response = MagicMock()
+    response.headers.get_content_type.return_value = 'audio/mpeg'
+    response.read.return_value = b'ID3PRIVATE_AUDIO'
+    opener = Mock()
+    opener.open.return_value.__enter__ = Mock(return_value=response)
+    opener.open.return_value.__exit__ = Mock(return_value=False)
+    monkeypatch.setattr(ai_providers, 'build_opener', Mock(return_value=opener))
+    monkeypatch.setattr(ai_providers, 'post', REAL_POST)
+    if case == 'timeout': opener.open.side_effect = TimeoutError('PRIVATE_EXCEPTION')
+    elif case in ('http', 'redirect'):
+        opener.open.side_effect = HTTPError('https://private.invalid', 302 if case == 'redirect' else 503,
+                                            'PRIVATE_EXCEPTION', {}, None)
+    elif case == 'mime': response.headers.get_content_type.return_value = 'application/json'
+    elif case == 'signature': response.read.return_value = b'PRIVATE_AUDIO'
+    elif case == 'oversize': response.read.return_value = b'x' * (5 * 1024 * 1024 + 1)
+    elif case == 'empty': response.read.return_value = b''
+    elif case == 'configuration': monkeypatch.delenv('ELEVENLABS_API_KEY')
+    elif case == 'voice': monkeypatch.setenv('ELEVENLABS_VOICE_ID', '')
+    elif case == 'unknown': opener.open.side_effect = OSError('PRIVATE_EXCEPTION')
+    result = client.post('/api/companies/AAPL/research-audio', json=request)
+    assert result.status_code == 200 and result.json()['status'] == 'audio_unavailable'
+    assert f'audio_reason={expected}' in caplog.text
+    for private in ('PRIVATE_API_KEY', 'PRIVATE_VOICE', 'PRIVATE_AUDIO', 'PRIVATE_EXCEPTION',
+                    'https://private.invalid', result.json()['transcript'], 'xi-api-key', 'Authorization'):
+        assert private not in caplog.text
+
+
 def test_legacy_brief_is_unchanged(generated):
     client, _, gemini, snowflake, audio, _ = generated
     result = client.post('/api/companies/AAPL/brief').json()

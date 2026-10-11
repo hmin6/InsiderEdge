@@ -3,6 +3,8 @@ import base64
 from collections import OrderedDict
 import hashlib
 import json
+import logging
+import re
 from threading import Lock
 from time import monotonic
 from typing import Annotated, Literal
@@ -128,14 +130,25 @@ def verify(request, evidence, snowflake_evidence):
     return request.document == combine(snowflake, gemini)
 
 
-def synthesize(ticker, document, provider):
+def synthesize(ticker, document, provider, research_event_id=None):
     text = script(ticker, document)
     try:
         audio = provider.synthesize(text)
         if not isinstance(audio, bytes) or not audio or len(audio) > 5 * 1024 * 1024:
-            raise ProviderFailure('Audio unavailable')
+            reason = 'empty_audio' if isinstance(audio, bytes) and not audio else 'provider_invalid_response'
+            raise ProviderFailure('Audio unavailable', reason_category=reason)
         return BriefResponse(ticker=ticker, transcript=text, audio_base64=base64.b64encode(audio).decode(),
                              audio_mime_type='audio/mpeg', status='ok')
-    except ProviderFailure:
+    except ProviderFailure as error:
+        allowed = {'provider_timeout', 'provider_http_error', 'provider_invalid_response',
+                   'empty_audio', 'configuration_unavailable', 'other'}
+        reason = error.reason_category
+        safe_reason = reason if isinstance(reason, str) and reason in allowed else 'other'
+        safe_ticker = ticker if isinstance(ticker, str) and re.fullmatch(r'[A-Z0-9.-]{1,20}', ticker) else 'invalid'
+        safe_event = (research_event_id if isinstance(research_event_id, str)
+                      and re.fullmatch(r'[A-Z0-9.-]{1,20}:\d{4}-\d{2}-\d{2}', research_event_id) else None)
+        logging.getLogger(__name__).warning(
+            'Research audio unavailable ticker=%s research_event_id=%s audio_reason=%s',
+            safe_ticker, safe_event, safe_reason)
         return BriefResponse(ticker=ticker, transcript=text, audio_base64=None,
                              audio_mime_type=None, status='audio_unavailable')
