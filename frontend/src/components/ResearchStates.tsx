@@ -307,6 +307,13 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
             context="Compared against historical rates to detect acceleration."
           />
           <MetricCard
+            label="Historical Rate"
+            value={numeric(data.activity.historical_purchase_rate)}
+            raw={data.activity.historical_purchase_rate}
+            explanation="Average number of insider purchase events per day over the last year."
+            context="Establishes the company's normal baseline for insider buying."
+          />
+          <MetricCard
             label="Buyers (30d)"
             value={formatCount(data.activity.buyers_30d)}
             raw={data.activity.buyers_30d}
@@ -540,6 +547,13 @@ export function PredictionEvidence({ data }: { data: PredictionResponse }) {
             raw={data.metrics.sample_count}
             explanation="The number of historical events used in the held-out validation set."
             context="Larger sample sizes yield more trustworthy and durable metrics."
+          />
+          <MetricCard
+            label="Prevalence"
+            value={numeric(data.metrics.positive_class_prevalence, true)}
+            raw={data.metrics.positive_class_prevalence}
+            explanation="The percentage of historical comparable events that actually outperformed the benchmark."
+            context="Indicates the base rate of success before applying the ML model."
           />
         </div>
       )}
