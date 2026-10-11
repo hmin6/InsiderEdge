@@ -974,3 +974,47 @@ h3 {
   opacity: 1;
   visibility: visible;
 }
+/* Shared presentation; provider cards retain independent state and boundaries. */
+.ie-research-assistant-heading {
+  border-top: 1px solid var(--ie-border);
+  padding-top: var(--ie-space-5);
+}
+.ie-research-assistant-heading p {
+  margin-top: var(--ie-space-2);
+  max-width: 80ch;
+}
+.ie-research-assistant-tabs {
+  display: flex;
+  gap: var(--ie-space-1);
+  padding: var(--ie-space-1);
+  border: 1px solid var(--ie-border);
+  border-radius: var(--ie-radius);
+  background: var(--ie-panel);
+  flex-wrap: wrap;
+}
+.ie-research-assistant-tabs [role="tab"] {
+  flex: 1 1 160px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--ie-radius) / 2);
+  background: transparent;
+  color: var(--ie-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.ie-research-assistant-tabs [role="tab"][aria-selected="true"] {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: #3b82f6;
+  color: var(--ie-text);
+}
+.ie-research-assistant-tabs [role="tab"]:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+.ie-research-assistant-panel {
+  min-width: 0;
+}
+.ie-research-assistant-panel[hidden] {
+  display: none;
+}

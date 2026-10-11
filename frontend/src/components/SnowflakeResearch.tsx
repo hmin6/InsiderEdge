@@ -76,7 +76,7 @@ export function SnowflakeResearch({ ticker }: { ticker: string }) {
 
   }
 
-  return <Panel title="Snowflake Research Context" description="Powered by Snowflake Cortex - Supplemental qualitative context. No influence on scoring or predictions.">
+  return <Panel title="Research Context" description="Powered by Snowflake Cortex - Qualitative context from persisted event and filing evidence.">
 
     <button className="ie-button" onClick={generate} disabled={state !== 'idle'}>{state === 'pending' ? 'Preparing research context...' : 'Generate research context'}</button>
 

@@ -1,4 +1,4 @@
-import { SnowflakeResearch } from "../components/SnowflakeResearch";
+import { AIResearchAssistant } from "../components/AIResearchAssistant";
 import { useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
@@ -19,8 +19,6 @@ import {
   StateMessage,
   InsiderEdgeScore,
   PriceChart,
-  AnalystBrief,
-  ExplainSignal,
   PanelBoundary,
   EventStudyEvidence,
   StatisticsEvidence,
@@ -244,34 +242,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
               </Panel>
             </PanelBoundary>
 
-            <PanelBoundary
-              label="Snowflake research"
-              key={`snowflake:${eventKey}`}
-            >
-              <SnowflakeResearch ticker={data.ticker} />
-            </PanelBoundary>
-
-            {/* AI Side-by-Side Grid */}
-            <div className="ie-grid" style={{ alignItems: "start" }}>
-              <PanelBoundary label="AI explanation" key={`explain:${eventKey}`}>
-                <ExplainSignal
-                  ticker={data.ticker}
-                  evidenceKey={eventKey}
-                  evidence={null}
-                />
-              </PanelBoundary>
-
-              <PanelBoundary label="Analyst brief" key={`brief:${eventKey}`}>
-                <AnalystBrief ticker={data.ticker} evidenceKey={eventKey} />
-              </PanelBoundary>
-            </div>
-            <p
-              className="ie-muted"
-              style={{ textAlign: "center", paddingTop: "8px" }}
-            >
-              AI interprets the quantitative evidence above; it does not
-              calculate the signal.
-            </p>
+            <AIResearchAssistant ticker={data.ticker} evidenceKey={eventKey} />
           </div>
         )}
       </PageContainer>
