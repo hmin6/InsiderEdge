@@ -5,6 +5,7 @@ import type { CompanyResponse, RadarItem } from "../types/api";
 import type { StatisticsResponse, PredictionResponse } from "../types/research";
 import { Panel, StateMessage } from "./ui";
 import { InsiderEdgeScore } from "./InsiderEdgeScore";
+import { finiteMetric, sectionAvailable, statisticsVisibility, predictionVisibility } from "./metricVisibility";
 import { NOT_SCORED_EXPLANATION } from "./SignalAvailability";
 
 export type RadarSortKey =
@@ -87,10 +88,12 @@ function MetricCard({
   raw,
   explanation,
   context,
+  status,
 }: {
   label: string;
   value: React.ReactNode;
-  raw: any;
+  raw: number | string | null | undefined;
+  status?: string;
   explanation: string;
   context: string;
 }) {
@@ -116,6 +119,8 @@ function MetricCard({
     if (isOpen) window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
+
+  if (!sectionAvailable(status) || (typeof raw === "string" ? !raw.trim() : !finiteMetric(raw))) return null;
 
   return (
     <>
@@ -324,14 +329,17 @@ export function CompanyScore({ data }: { data: CompanyResponse }) {
 }
 
 export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
+  const visible = statisticsVisibility(data);
+  if (!visible.activity && !visible.market) return null;
   return (
     <div className="ie-stack" style={{ height: "100%" }}>
-      <Panel title="Anomaly & Activity Evidence" style={{ flex: 1 }}>
+      {visible.activity && <div className="tour-activity-panel"><Panel title="Anomaly & Activity Evidence" style={{ flex: 1 }}>
         <div className="ie-metric-grid">
           <MetricCard
             label="Anomaly Score"
             value={numeric(data.anomaly.score)}
             raw={data.anomaly.score}
+            status={data.anomaly.status}
             explanation="Percentile ranking of how unusual the insider buying size and market conditions are relative to historical baselines."
             context=">80 is considered highly anomalous and statistically rare."
           />
@@ -339,6 +347,7 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
             label="Activity Score"
             value={numeric(data.activity.score)}
             raw={data.activity.score}
+            status={data.activity.status}
             explanation="Percentile ranking of clustered buying intensity within a 30-day window."
             context="Higher scores indicate strong, coordinated insider conviction."
           />
@@ -346,6 +355,7 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
             label="Mahalanobis Dist"
             value={numeric(data.anomaly.mahalanobis_distance)}
             raw={data.anomaly.mahalanobis_distance}
+            status={data.anomaly.status}
             explanation="A multi-dimensional measure of how far this event's features deviate from the norm."
             context=">2.5 typically flags a significant outlier."
           />
@@ -353,6 +363,7 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
             label="Purchase Rate Ratio"
             value={numeric(data.activity.rate_ratio)}
             raw={data.activity.rate_ratio}
+            status={data.activity.status}
             explanation="Current 30-day buying rate divided by the historical baseline rate."
             context=">1.0 means insiders are buying faster than usual."
           />
@@ -360,6 +371,7 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
             label="Recent Rate"
             value={numeric(data.activity.recent_purchase_rate)}
             raw={data.activity.recent_purchase_rate}
+            status={data.activity.status}
             explanation="Average number of insider purchase events per day over the last 30 days."
             context="Compared against historical rates to detect acceleration."
           />
@@ -367,6 +379,7 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
             label="Historical Rate"
             value={numeric(data.activity.historical_purchase_rate)}
             raw={data.activity.historical_purchase_rate}
+            status={data.activity.status}
             explanation="Average number of insider purchase events per day over the last year."
             context="Establishes the company's normal baseline for insider buying."
           />
@@ -374,34 +387,23 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
             label="Buyers (30d)"
             value={formatCount(data.activity.buyers_30d)}
             raw={data.activity.buyers_30d}
+            status={data.activity.status}
             explanation="Number of unique executives or directors buying in the last 30 days."
             context="Multiple buyers (clusters) provide much stronger signals than solo buyers."
           />
         </div>
 
-        {data.anomaly.score === null && (
-          <StateMessage title="Insufficient anomaly history">
-            Anomaly evidence is unavailable; it is not a zero score.
-          </StateMessage>
-        )}
-        <p className="ie-muted" style={{ marginTop: "16px" }}>
-          Anomaly Cohort: {data.anomaly.reference_population ?? "Unavailable"} (
-          {formatCount(data.anomaly.reference_count)} events) · Status:{" "}
-          {data.anomaly.status}
-        </p>
-        <p className="ie-muted" style={{ marginTop: "4px" }}>
-          Activity Cohort: {data.activity.reference_population ?? "Unavailable"}{" "}
-          ({formatCount(data.activity.buyers_30d)} supported buyers) · Status:{" "}
-          {data.activity.status}
-        </p>
-      </Panel>
+        {sectionAvailable(data.anomaly.status) && data.anomaly.reference_population && <p className="ie-muted">Anomaly Cohort: {data.anomaly.reference_population}{finiteMetric(data.anomaly.reference_count) && ` (${data.anomaly.reference_count} events)`} · Status: {data.anomaly.status}</p>}
+        {sectionAvailable(data.activity.status) && data.activity.reference_population && <p className="ie-muted">Activity Cohort: {data.activity.reference_population} · Status: {data.activity.status}</p>}
+      </Panel></div>}
 
-      <Panel title="Market Dislocation Evidence" style={{ flex: 1 }}>
+      {visible.market && <div className="tour-dislocation-panel"><Panel title="Market Dislocation Evidence" style={{ flex: 1 }}>
         <div className="ie-metric-grid">
           <MetricCard
             label="Stock Return (90d)"
             value={numeric(data.market.stock_return_90d, true)}
             raw={data.market.stock_return_90d}
+            status={data.market.status}
             explanation="Price performance over the prior 90 trading sessions."
             context="Used to identify if the stock is being bought into severe weakness."
           />
@@ -409,6 +411,7 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
             label="Sector Return (90d)"
             value={numeric(data.market.sector_return_90d, true)}
             raw={data.market.sector_return_90d}
+            status={data.market.status}
             explanation="Average performance of the company's sector over the last 90 sessions."
             context="Contextualizes whether a stock drop is idiosyncratic or sector-wide."
           />
@@ -416,6 +419,7 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
             label="Drawdown"
             value={numeric(data.market.drawdown, true)}
             raw={data.market.drawdown}
+            status={data.market.status}
             explanation="The percentage drop from the stock's highest price in the last 90 days."
             context="Closer to -20% or worse indicates significant market dislocation."
           />
@@ -423,6 +427,7 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
             label="Dislocation Score"
             value={numeric(data.market.dislocation_score)}
             raw={data.market.dislocation_score}
+            status={data.market.status}
             explanation="A 0-100 score blending the sector performance gap and recent drawdown."
             context="High scores mean the stock is beaten down relative to peers, a classic value setup."
           />
@@ -431,20 +436,23 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
           Pre-event market context; unavailable observations remain unknown.
           Status: {data.market.status}
         </p>
-      </Panel>
+      </Panel></div>}
     </div>
   );
 }
 
 export function EventStudyEvidence({ data }: { data: StatisticsResponse }) {
   const v = data.statistical_validation;
+  const visible = statisticsVisibility(data);
+  if (!visible.eventStudy) return null;
   return (
     <Panel title="Event Study & Statistical Evidence" style={{ flex: 1 }}>
-      <div className="ie-metric-grid">
+      {visible.car && <div className="ie-metric-grid">
         <MetricCard
           label="CAR5"
           value={numeric(data.event_study.car5, true)}
           raw={data.event_study.car5}
+            status={data.event_study.status}
           explanation="Cumulative Abnormal Return over 5 days. The stock's actual return minus the market benchmark's expected return."
           context="Positive numbers mean the stock outperformed the market post-event."
         />
@@ -452,6 +460,7 @@ export function EventStudyEvidence({ data }: { data: StatisticsResponse }) {
           label="CAR30"
           value={numeric(data.event_study.car30, true)}
           raw={data.event_study.car30}
+            status={data.event_study.status}
           explanation="Cumulative Abnormal Return over 30 days."
           context="Used as the primary target variable for the machine learning models."
         />
@@ -459,15 +468,17 @@ export function EventStudyEvidence({ data }: { data: StatisticsResponse }) {
           label="CAR90"
           value={numeric(data.event_study.car90, true)}
           raw={data.event_study.car90}
+            status={data.event_study.status}
           explanation="Cumulative Abnormal Return over 90 days."
           context="Measures the long-term sustained edge of the event."
         />
-      </div>
-      <div className="ie-metric-grid">
+      </div>}
+      {visible.validation && <div className="ie-metric-grid">
         <MetricCard
           label="Comparable Events"
           value={formatCount(v.comparable_event_count)}
           raw={v.comparable_event_count}
+          status={v.status}
           explanation="Historical events with identical sector and role profiles used for backtesting."
           context="10+ is required for statistical validity."
         />
@@ -475,6 +486,7 @@ export function EventStudyEvidence({ data }: { data: StatisticsResponse }) {
           label="Mean CAR30"
           value={numeric(v.mean_car30, true)}
           raw={v.mean_car30}
+          status={v.status}
           explanation="The average 30-day abnormal return of the historical comparable cohort."
           context="Shows the historical track record of this specific setup."
         />
@@ -482,6 +494,7 @@ export function EventStudyEvidence({ data }: { data: StatisticsResponse }) {
           label="P-Value"
           value={formatPValue(v.randomization_p_value)}
           raw={v.randomization_p_value}
+          status={v.status}
           explanation="The probability that the Mean CAR30 was achieved purely by random chance."
           context="Below 0.05 is generally considered statistically significant."
         />
@@ -489,39 +502,38 @@ export function EventStudyEvidence({ data }: { data: StatisticsResponse }) {
           label="Statistical Score"
           value={numeric(v.statistical_score)}
           raw={v.statistical_score}
+          status={v.status}
           explanation="A 0-100 blend of bootstrap confidence intervals and p-value support."
           context="Higher scores indicate a highly repeatable, non-random historical edge."
         />
-      </div>
+      </div>}
 
-      {(data.event_study.car30 === null || data.event_study.car90 === null) && (
+      {(visible.car && (!finiteMetric(data.event_study.car30) || !finiteMetric(data.event_study.car90))) && (
         <p className="ie-muted" style={{ marginTop: "16px" }}>
           Unavailable horizons may need more completed trading sessions. Future
           CAR is not yet known.
         </p>
       )}
-      <p className="ie-muted" style={{ marginTop: "16px" }}>
+      {visible.interval && <p className="ie-muted" style={{ marginTop: "16px" }}>
         95% bootstrap interval:{" "}
         {v.bootstrap_ci_95
           ? `${numeric(v.bootstrap_ci_95.lower, true)} to ${numeric(v.bootstrap_ci_95.upper, true)}`
           : "Unavailable"}
-      </p>
-      <p className="ie-muted" style={{ marginTop: "4px" }}>
+      </p>}
+      {(visible.validation || visible.interval) && v.cohort_definition && <p className="ie-muted" style={{ marginTop: "4px" }}>
         Cohort: {v.cohort_definition || "Unavailable"} · Validation Status:{" "}
         {v.status}
-      </p>
+      </p>}
     </Panel>
   );
 }
 
 export function PredictionEvidence({ data }: { data: PredictionResponse }) {
+  const visible = predictionVisibility(data);
+  if (!visible.panel) return null;
   return (
     <Panel title="ML Prediction" style={{ flex: 1 }}>
-      {data.outperformance_probability === null ? (
-        <StateMessage title="Model prediction unavailable">
-          No model probability is available for this event.
-        </StateMessage>
-      ) : (
+      {visible.probability && (
         <div className="ie-metric-grid">
           <MetricCard
             label="Outperformance Probability"
@@ -544,17 +556,12 @@ export function PredictionEvidence({ data }: { data: PredictionResponse }) {
         </div>
       )}
 
-      <p className="ie-muted" style={{ marginTop: "16px" }}>
+      {finiteMetric(data.classification_threshold) && <p className="ie-muted" style={{ marginTop: "16px" }}>
         Classification threshold: {numeric(data.classification_threshold, true)}{" "}
         · Status: {data.status}
-      </p>
+      </p>}
 
-      {data.metrics === null ? (
-        <StateMessage title="Held-out metrics unavailable">
-          No durable frozen held-out evaluation is available. Validation metrics
-          are not substituted.
-        </StateMessage>
-      ) : (
+      {visible.metrics && data.metrics && (
         <div
           className="ie-metric-grid"
           style={{
@@ -614,6 +621,7 @@ export function PredictionEvidence({ data }: { data: PredictionResponse }) {
           />
         </div>
       )}
+      {visible.metrics && data.metrics && (data.metrics.split_start || data.metrics.split_end) && <p className="ie-muted">Held-out period: {data.metrics.split_start} to {data.metrics.split_end}</p>}
     </Panel>
   );
 }

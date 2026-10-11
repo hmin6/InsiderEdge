@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { formatNumber, formatPercent, formatFractionPercent, formatCurrency, formatCount, formatPValue } from '../utils/format';
-import { rankRadar, StatisticsEvidence } from './ResearchStates';
+import { rankRadar, EventStudyEvidence } from './ResearchStates';
 import { DEV_MOCK_RADAR, DEV_MOCK_STATISTICS } from '../api/mocks';
 
 test('measurements round for display with grouping, signs and trailing zeros', () => {
@@ -40,9 +40,9 @@ test('radar sorts by original precision even when formatted scores tie', () => {
 });
 test('statistical panels distinguish counts, percentages and tiny p-values', () => {
   const data = { ...DEV_MOCK_STATISTICS, statistical_validation: { ...DEV_MOCK_STATISTICS.statistical_validation, comparable_event_count: 1234, mean_car30: -.02567891, randomization_p_value: .00000123456 } };
-  const html = renderToStaticMarkup(<StatisticsEvidence data={data} />);
-  assert.match(html, /Comparable Events<\/div><div class="ie-metric-value">1,234/);
-  assert.match(html, /Mean CAR30<\/div><div class="ie-metric-value">-2.57%/);
-  assert.match(html, /P-Value<\/div><div class="ie-metric-value">1.23e-6/);
+  const html = renderToStaticMarkup(<EventStudyEvidence data={data} />);
+  assert.match(html, /Comparable Events[\s\S]*?class="ie-metric-value">1,234/);
+  assert.match(html, /Mean CAR30[\s\S]*?class="ie-metric-value">-2.57%/);
+  assert.match(html, /P-Value[\s\S]*?class="ie-metric-value">1.23e-6/);
   assert.equal(data.statistical_validation.mean_car30, -.02567891);
 });

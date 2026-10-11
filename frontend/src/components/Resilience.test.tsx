@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { rankRadar, numeric, StatisticsEvidence, PredictionEvidence, CompanyScore } from './ResearchStates';
+import { rankRadar, numeric, StatisticsEvidence, EventStudyEvidence, PredictionEvidence, CompanyScore } from './ResearchStates';
 import { mockCompany } from '../api/client';
 import { ApiError, getJson } from '../api/http';
 import { DEV_MOCK_RADAR, DEV_MOCK_COMPANY, DEV_MOCK_STATISTICS, DEV_MOCK_PREDICTION } from '../api/mocks';
@@ -25,16 +25,16 @@ test('HTTP failures retain status without exposing raw server details', async ()
 });
 test('recent CAR horizons stay unavailable while realized zero CAR5 remains visible', () => {
   const data: StatisticsResponse = { ...DEV_MOCK_STATISTICS, ticker: 'AAPL', research_event_id: 'test', public_event_day: '2026-10-09', anomaly: { ...DEV_MOCK_STATISTICS.anomaly, score: null, status: 'insufficient_data' }, activity: { ...DEV_MOCK_STATISTICS.activity, score: 0, status: 'complete' }, event_study: { car5: 0, car30: null, car90: null, status: 'partial' }, statistical_validation: { comparable_event_count: null, cohort_definition: null, mean_car30: null, bootstrap_ci_95: null, randomization_p_value: null, statistical_score: null, status: 'insufficient_data' } };
-  const html = renderToStaticMarkup(<StatisticsEvidence data={data} />);
-  assert.match(html, /Insufficient anomaly history/);
-  assert.match(html, /CAR5<\/div><div class="ie-metric-value">0.00%/);
-  assert.match(html, /CAR30<\/div><div class="ie-metric-value">Unavailable/);
-  assert.match(html, /CAR90<\/div><div class="ie-metric-value">Unavailable/);
+  const html = renderToStaticMarkup(<><StatisticsEvidence data={data} /><EventStudyEvidence data={data} /></>);
+  assert.doesNotMatch(html, /Anomaly Score/);
+  assert.match(html, /CAR5[\s\S]*?class="ie-metric-value">0.00%/);
+  assert.doesNotMatch(html, /ie-metric-label[^>]*>CAR30/);
+  assert.doesNotMatch(html, /ie-metric-label[^>]*>CAR90/);
   assert.match(html, /Future CAR is not yet known/);
 });
-test('missing model probability has an explicit state', () => {
+test('missing model probability has no empty probability card', () => {
   const html = renderToStaticMarkup(<PredictionEvidence data={{ ...DEV_MOCK_PREDICTION, ticker: 'AAPL', research_event_id: 'test', model_name: null, outperformance_probability: null, status: 'insufficient_data' }} />);
-  assert.match(html, /Model prediction unavailable/);
+  assert.doesNotMatch(html, /Outperformance Probability|Model prediction unavailable/);
   assert.doesNotMatch(html, /0.00%/);
 });
 
@@ -45,13 +45,12 @@ test('complete statistics display diagnostics, market context and exact statuses
     activity: { score: 0, recent_purchase_rate: 0, historical_purchase_rate: .1, rate_ratio: 0, buyers_30d: 0, reference_population: 'company', status: 'complete' },
     market: { stock_return_90d: -.2, sector_return_90d: .1, drawdown: 0, dislocation_score: 0, status: 'complete' },
   };
-  const html = renderToStaticMarkup(<StatisticsEvidence data={data} />);
-  for (const field of ['Mahalanobis distance', 'Anomaly reference population', 'Anomaly reference count', 'Anomaly status', 'Recent purchase rate (events/day)', 'Historical purchase rate (events/day)', 'Purchase rate ratio', 'Supported buyers (30 days)', 'Activity reference population', 'Activity status', 'Market Dislocation Evidence', 'Stock return (90 sessions)', 'Sector return (90 sessions)', 'Drawdown', 'Dislocation score', 'Market status']) assert.ok(html.includes(field), field);
-  assert.match(html, /Mahalanobis distance<\/dt><dd>2.5/);
-  assert.match(html, /Supported buyers \(30 days\)<\/dt><dd>0/);
-  assert.match(html, /Stock return \(90 sessions\)<\/dt><dd>-20.00%/);
-  assert.match(html, /Drawdown<\/dt><dd>0.00%/);
-  assert.match(html, /Event-study status: complete/);
+  const html = renderToStaticMarkup(<><StatisticsEvidence data={data} /><EventStudyEvidence data={data} /></>);
+  for (const field of ['Mahalanobis Dist', 'Recent Rate', 'Historical Rate', 'Purchase Rate Ratio', 'Buyers (30d)', 'Market Dislocation Evidence', 'Stock Return (90d)', 'Sector Return (90d)', 'Drawdown', 'Dislocation Score']) assert.ok(html.includes(field), field);
+  assert.match(html, /Mahalanobis Dist[\s\S]*?class="ie-metric-value">2.50/);
+  assert.match(html, /Buyers \(30d\)[\s\S]*?class="ie-metric-value">0/);
+  assert.match(html, /Stock Return \(90d\)[\s\S]*?class="ie-metric-value">-20.00%/);
+  assert.match(html, /Drawdown[\s\S]*?class="ie-metric-value">0.00%/);
 });
 
 test('partial bootstrap evidence stays visible when randomization and combined score are unavailable', () => {
@@ -60,11 +59,11 @@ test('partial bootstrap evidence stays visible when randomization and combined s
     bootstrap_ci_95: { lower: -.02, upper: .03 }, randomization_p_value: null,
     statistical_score: null, status: 'partial',
   } };
-  const html = renderToStaticMarkup(<StatisticsEvidence data={data} />);
-  assert.match(html, /Mean CAR30<\/div><div class="ie-metric-value">0.00%/);
+  const html = renderToStaticMarkup(<><StatisticsEvidence data={data} /><EventStudyEvidence data={data} /></>);
+  assert.match(html, /Mean CAR30[\s\S]*?class="ie-metric-value">0.00%/);
   assert.match(html, /-2.00% to 3.00%/);
-  assert.match(html, /P-Value<\/div><div class="ie-metric-value">Unavailable/);
-  assert.match(html, /Combined statistical score unavailable/);
+  assert.doesNotMatch(html, /P-Value/);
+  assert.doesNotMatch(html, /ie-metric-label[^>]*>Statistical Score/);
   assert.doesNotMatch(html, /Comparable-event evidence is unavailable/);
 });
 
@@ -76,19 +75,11 @@ test('prediction shows only supplied threshold and frozen held-out metrics, pres
     },
   }} />);
   assert.match(html, /Classification threshold: 50.00%/);
-  assert.match(html, /Held-out ROC-AUC<\/dt><dd>Unavailable/);
-  assert.match(html, /Held-out Brier score<\/dt><dd>0/);
-  assert.match(html, /Held-out precision<\/dt><dd>0.00%/);
-  assert.match(html, /Held-out recall<\/dt><dd>Unavailable/);
-  assert.match(html, /Held-out F1<\/dt><dd>0/);
-  assert.match(html, /Held-out sample count<\/dt><dd>20/);
-  assert.match(html, /Held-out positive-class prevalence<\/dt><dd>25.00%/);
-  assert.match(html, /2026-01-01/);
-  assert.match(html, /2026-06-30/);
+  for (const text of ['Brier Score', 'Precision', 'F1 Score', 'Sample Count', '20', '25.00%', '2026-01-01', '2026-06-30']) assert.ok(html.includes(text), text);
+  assert.doesNotMatch(html, /Held-Out ROC-AUC|Recall|Unavailable/);
   const unavailable = renderToStaticMarkup(<PredictionEvidence data={DEV_MOCK_PREDICTION} />);
-  assert.match(unavailable, /Held-out metrics unavailable/);
-  assert.match(unavailable, /Validation metrics are not substituted/);
-  assert.match(unavailable, /Classification threshold: Unavailable/);
+  assert.doesNotMatch(unavailable, /Held-Out ROC-AUC|Held-out metrics unavailable|Classification threshold/);
+  assert.match(unavailable, /Outperformance Probability/);
 });
 
 test('existing unscored event is distinct from absent research events', () => {
