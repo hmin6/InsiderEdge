@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { formatCount, formatPValue } from "../utils/format";
 import type { CompanyResponse, RadarItem } from "../types/api";
 import type { StatisticsResponse, PredictionResponse } from "../types/research";
@@ -92,30 +93,34 @@ function MetricCard({
   context: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const popoverRef = useRef<HTMLDivElement>(null);
 
-  // Automatically close the pop-up if the user clicks outside of it
+  // Lock scrolling on the main page when the modal is open
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        popoverRef.current &&
-        !popoverRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    }
     if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
     }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
+
+  // Close the modal if the user presses the Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsOpen(false);
+    };
+    if (isOpen) window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
   return (
-    <div style={{ position: "relative", height: "100%" }} ref={popoverRef}>
+    <>
       <button
         type="button"
         className="ie-metric-card"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen(true)}
         style={{
           textAlign: "left",
           width: "100%",
@@ -146,103 +151,149 @@ function MetricCard({
         <div className="ie-metric-value">{value}</div>
       </button>
 
-      {/* Floating Pop-up over the grid */}
-      {isOpen && (
-        <div
-          className="ie-reveal"
-          style={{
-            position: "absolute",
-            top: "calc(100% + 8px)",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "280px",
-            zIndex: 100,
-            background: "var(--ie-nav)",
-            padding: "16px",
-            borderRadius: "8px",
-            border: "1px solid var(--ie-border)",
-            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.6)",
-            color: "var(--ie-text)",
-            textAlign: "left",
-            cursor: "default",
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsOpen(false);
-            }}
-            style={{
-              position: "absolute",
-              top: "8px",
-              right: "8px",
-              background: "transparent",
-              border: "none",
-              color: "var(--ie-muted)",
-              cursor: "pointer",
-              fontSize: "14px",
-              padding: "4px",
-              lineHeight: 1,
-            }}
-            aria-label="Close explanation"
-          >
-            ✕
-          </button>
+      {/* Full-Screen Centered Modal Overlay using Portal */}
+      {isOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
           <div
+            className="ie-reveal"
             style={{
-              fontSize: "14px",
-              fontWeight: 600,
-              marginBottom: "12px",
-              color: "#fff",
-              paddingRight: "16px",
+              position: "fixed",
+              inset: 0,
+              zIndex: 9999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(0, 0, 0, 0.65)",
+              backdropFilter: "blur(6px)",
+              padding: "20px",
             }}
+            onClick={() => setIsOpen(false)}
           >
-            {label}
-          </div>
-          <div
-            style={{ fontSize: "13px", marginBottom: "10px", lineHeight: 1.5 }}
-          >
-            <strong
+            <div
               style={{
-                color: "var(--ie-primary)",
-                display: "block",
-                marginBottom: "2px",
+                position: "relative",
+                width: "100%",
+                maxWidth: "400px",
+                background: "var(--ie-nav)",
+                border: "1px solid var(--ie-border)",
+                borderRadius: "12px",
+                padding: "24px",
+                boxShadow: "0 20px 40px rgba(0, 0, 0, 0.6)",
+                color: "var(--ie-text)",
+                textAlign: "left",
+                cursor: "default",
               }}
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
             >
-              Meaning:
-            </strong>
-            <span style={{ color: "#cbd5e1" }}>{explanation}</span>
-          </div>
-          <div
-            style={{ fontSize: "13px", marginBottom: "12px", lineHeight: 1.5 }}
-          >
-            <strong
-              style={{
-                color: "var(--ie-primary)",
-                display: "block",
-                marginBottom: "2px",
-              }}
-            >
-              Context:
-            </strong>
-            <span style={{ color: "#cbd5e1" }}>{context}</span>
-          </div>
-          <div
-            style={{
-              fontSize: "11px",
-              color: "var(--ie-muted)",
-              borderTop: "1px solid var(--ie-border)",
-              paddingTop: "8px",
-              margin: 0,
-            }}
-          >
-            Raw value: {String(raw ?? "null")}
-          </div>
-        </div>
-      )}
-    </div>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                style={{
+                  position: "absolute",
+                  top: "14px",
+                  right: "14px",
+                  background: "rgba(255, 255, 255, 0.05)",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  borderRadius: "50%",
+                  color: "var(--ie-muted)",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  width: "30px",
+                  height: "30px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "background 0.2s, color 0.2s",
+                }}
+                aria-label="Close explanation"
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background =
+                    "rgba(255, 255, 255, 0.15)";
+                  e.currentTarget.style.color = "#fff";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background =
+                    "rgba(255, 255, 255, 0.05)";
+                  e.currentTarget.style.color = "var(--ie-muted)";
+                }}
+              >
+                ✕
+              </button>
+              <div
+                style={{
+                  fontSize: "18px",
+                  fontWeight: 650,
+                  marginBottom: "16px",
+                  color: "#fff",
+                  paddingRight: "24px",
+                }}
+              >
+                {label}
+              </div>
+              <div
+                style={{
+                  fontSize: "14.5px",
+                  marginBottom: "12px",
+                  lineHeight: 1.6,
+                }}
+              >
+                <strong
+                  style={{
+                    color: "var(--ie-primary)",
+                    display: "block",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Meaning
+                </strong>
+                <span style={{ color: "#e2e8f0" }}>{explanation}</span>
+              </div>
+              <div
+                style={{
+                  fontSize: "14.5px",
+                  marginBottom: "16px",
+                  lineHeight: 1.6,
+                }}
+              >
+                <strong
+                  style={{
+                    color: "var(--ie-primary)",
+                    display: "block",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Context
+                </strong>
+                <span style={{ color: "#e2e8f0" }}>{context}</span>
+              </div>
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "var(--ie-muted)",
+                  borderTop: "1px solid var(--ie-border)",
+                  paddingTop: "12px",
+                  margin: 0,
+                }}
+              >
+                Raw metric value:{" "}
+                <code
+                  style={{
+                    background: "rgba(255,255,255,0.05)",
+                    padding: "2px 6px",
+                    borderRadius: "4px",
+                  }}
+                >
+                  {String(raw ?? "null")}
+                </code>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
