@@ -257,3 +257,15 @@ passed
 No warnings were reported. Markdown and tracked/new-file whitespace checks passed.
 Production source/contracts/dependencies match main unchanged. These tests validate
 research tooling, not historical evidence or production provisional-score readiness.
+
+## Superseding limited Issue #81 product authorization
+
+The prior API/UI no-go has an explicit product exception: a separate Provisional
+Index in the standard dashboard under MODEL_SPEC.md's Issue #81 rules. Existing
+Signal-bound values with incomplete historical provenance are accepted only for
+this unvalidated display; known contradictions, invalid values and future evidence
+remain disqualifying. It is not canonical IES or a calibrated prediction and must
+not enter canonical rankings. Source-consistent descriptive metrics remain separate.
+No imputation is implemented because no defensible neutral reference is established.
+Other unvalidated scoring, fabricated source data and historical backfills remain
+prohibited. This authorization does not change the historical research findings.

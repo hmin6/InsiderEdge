@@ -1,3 +1,4 @@
+import { QuantitativeCoverage } from "../components/QuantitativeCoverage";
 import { SignalAvailability } from "../components/SignalAvailability";
 import {
   useEffect,
@@ -830,7 +831,6 @@ export default function RadarPage() {
             <thead>
               <tr>
                 <th>Company</th>
-                <th>Signal Summary</th>
                 <th>Status</th>
                 <th className="ie-number">Anomaly</th>
                 <th className="ie-number">Activity</th>
@@ -844,7 +844,7 @@ export default function RadarPage() {
             <tbody>
               {data.length > 0 && !filteredData.length && (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={7}>
                     No matching research events. Clear the filter to see the
                     full queue, or search a ticker to open its research page.
                   </td>
@@ -862,7 +862,6 @@ export default function RadarPage() {
                       <span className="ie-muted">{item.company_name}</span>
                     </Link>
                   </td>
-                  <td>{item.insider_signal_summary || "—"}</td>
                   <td>
                     <SignalAvailability evidence={item} />
                   </td>
@@ -876,6 +875,7 @@ export default function RadarPage() {
                   </td>
                   <td className="ie-number ie-priority-column">
                     <strong>{numeric(item.insider_edge_score)}</strong>
+                    {(item.insider_edge_score === null || item.quantitative_coverage?.status === 'provisional') && <QuantitativeCoverage data={item.quantitative_coverage} />}
                   </td>
                 </tr>
               ))}

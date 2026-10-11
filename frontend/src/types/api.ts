@@ -1,6 +1,23 @@
+export type QuantitativeCoverageData = {
+  status: "provisional" | "descriptive_only" | "unavailable";
+  purchase_count: number | null;
+  purchase_value: number | null;
+  information_date: string;
+  partial_index: number | null;
+  imputed_components?: string[];
+  imputation_method?: string | null;
+  coverage_weight: number;
+  available_components: string[];
+  missing_components: string[];
+  calculation_method: "observed_weight_renormalization";
+  reasons: string[];
+  provenance_limitations: string[];
+};
+
 export type AvailabilityStatus = "not_scored" | "complete" | "partial" | "insufficient_data";
 
 export type RadarItem = {
+  quantitative_coverage?: QuantitativeCoverageData | null;
   ticker: string;
   company_name: string;
   sector: string | null;
@@ -22,6 +39,7 @@ export type RadarResponse = {
 };
 
 export type CompanyResponse = {
+  quantitative_coverage?: QuantitativeCoverageData | null;
   ticker: string;
   cik: string | null;
   company_name: string;

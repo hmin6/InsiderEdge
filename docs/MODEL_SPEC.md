@@ -352,3 +352,31 @@ Keep these categories explicit in code comments/docs/presentation:
 - **Coursework-derived:** covariance/Mahalanobis concepts, statistical inference, bootstrap/permutation concepts, Logistic Regression/validation/metrics.
 - **Finance/time-series extension:** market-model event study, abnormal returns/CAR, timing/overlap considerations.
 - **InsiderEdge-specific design:** exact CAR horizons, research-event aggregation, cohort hierarchy, randomization-null construction, activity/dislocation formulas, score support mappings, and final IES weights.
+
+### Issue #81 authorized provisional display exception
+
+The standard UI may display a separate **Provisional Index**, never replacing
+canonical IES: `sum(w_i * available_component_i) / sum(w_i)` using original
+A/C/M/S/D weights .25/.15/.30/.15/.15. Existing M probabilities are scaled once
+by 100. Require at least two valid available components and weight >= .50.
+These are product presentation thresholds, not statistical validity guarantees.
+All-five-component Signals retain canonical scoring, without a provisional index.
+Canonical IES, its S-only partial policy, eligibility and default ranking are unchanged.
+
+For this display only, the team accepts existing event-bound Signal components
+with incomplete historical provenance. Validate event identity, statuses, declared
+missingness, finite numeric ranges and known temporal evidence. Reject inconsistent
+retained bindings and known future source/model availability or comparator outcomes.
+Absent historical chronology is disclosed, never invented or independently verified.
+No-Signal events do not gain component estimates from transaction data.
+
+No defensible universal neutral component value is established: this implementation
+performs **no imputation**, returns an empty imputed-component list and a null method.
+In particular, M is never fabricated. Any future imputation requires a justified
+component-specific method and separate Estimated Index disclosure. No historical
+backfill or other unvalidated canonical scoring is authorized.
+
+Disclosure: "Calculated using incomplete and/or imputed inputs. This estimate has
+not been independently validated and is less reliable than a complete InsiderEdge
+Score." Provisional indices are not calibrated predictions or directly comparable
+to full IES and never enter canonical sorting or persistence.
