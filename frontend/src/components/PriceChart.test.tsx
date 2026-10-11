@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { PriceChart, PriceHoverMarker } from './PriceChart';
+import { PriceChart, PriceHoverMarker, uniqueChartDates } from './PriceChart';
 import type { PricePoint, InsiderTransaction } from '../types/api';
 
 const prices: PricePoint[] = [{ date: '2026-10-01', analysis_price: 100,
@@ -76,8 +76,18 @@ test('custom inspection uses the transparent marker while retaining keyboard, zo
   const source = readFileSync(new URL('./PriceChart.tsx', import.meta.url), 'utf8');
   assert.match(source, /active && Number.isFinite\(y\) && <PriceHoverMarker cx=\{x\} cy=\{y\}/);
   assert.match(source, /strokeDasharray=\{active \? '4 4' : '5 3'\}/);
-  assert.match(source, /activeDot=\{<PriceHoverMarker \/>\}/);
+  assert.match(source, /activeDot=\{false\}/);
   assert.match(source, /ArrowLeft.*ArrowRight/);
   assert.match(source, /area.addEventListener\("wheel", wheel, \{ passive: false \}\)/);
   assert.match(source, /isAnimationActive=\{!reducedMotion\}/);
+});
+
+test('chart dates are unique without mutating source prices or changing their order', () => {
+  const first = prices[0];
+  const duplicate = { ...first, analysis_price: 200 };
+  const next = { ...first, date: '2026-10-02' };
+  const source = [first, duplicate, next];
+  assert.deepEqual(uniqueChartDates(source), [first, next]);
+  assert.deepEqual(source, [first, duplicate, next]);
+  assert.deepEqual(uniqueChartDates([]), []);
 });
