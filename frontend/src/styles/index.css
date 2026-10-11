@@ -110,6 +110,10 @@
   margin-top: 6px;
   border-top: 1px solid rgba(255, 255, 255, 0.15);
 }
+.ie-radar-sort-menu .ie-radar-sort-after-status > button {
+  margin-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
 .ie-radar-priority-flyout { overflow: visible; }
 .ie-radar-priority-flyout::after {
   content: "";
@@ -623,6 +627,12 @@ h3 {
 .ie-radar-table th:first-child,
 .ie-radar-table td:first-child:not([colspan]) {
   text-align: left;
+}
+.ie-radar-table .ie-radar-section-row th {
+  text-align: left;
+  background: var(--ie-panel);
+  color: var(--ie-text);
+  border-bottom: 1px solid var(--ie-border);
 }
 .ie-radar-search {
   margin: var(--ie-space-5) 0;
