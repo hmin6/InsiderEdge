@@ -4,6 +4,8 @@ import { requestResearchAudio, researchScript, MAX_RESEARCH_AUDIO_CHARACTERS, ty
 import { API_BASE_URL } from '../api/base';
 import type { BriefResponse } from '../types/brief';
 
+const RESEARCH_AUDIO_TIMEOUT_MS = 60_000;
+
 export function ResearchAudio({ ticker, research }: { ticker: string; research: ResearchAudioRequest }) {
   const oversized = researchScript(ticker, research.document).length > MAX_RESEARCH_AUDIO_CHARACTERS;
   const [state, setState] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
@@ -11,6 +13,7 @@ export function ResearchAudio({ ticker, research }: { ticker: string; research: 
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioError, setAudioError] = useState(false);
   const [playError, setPlayError] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
   const request = useRef<AbortController | null>(null);
   const audio = useRef<HTMLAudioElement>(null);
   useEffect(() => () => {
@@ -34,8 +37,13 @@ export function ResearchAudio({ ticker, research }: { ticker: string; research: 
     if (request.current || state === 'success' || oversized) return;
     const controller = new AbortController();
     request.current = controller;
+    setTimedOut(false);
     setState('pending');
-    const timeout = window.setTimeout(() => controller.abort(), 30000);
+    let deadlineReached = false;
+    const timeout = window.setTimeout(() => {
+      deadlineReached = true;
+      controller.abort();
+    }, RESEARCH_AUDIO_TIMEOUT_MS);
     try {
       const result = await requestResearchAudio(ticker, research, controller.signal, API_BASE_URL);
       if (request.current !== controller) return;
@@ -43,7 +51,10 @@ export function ResearchAudio({ ticker, research }: { ticker: string; research: 
       setBrief(result);
       setState('success');
     } catch {
-      if (request.current === controller) setState('error');
+      if (request.current === controller) {
+        setTimedOut(deadlineReached);
+        setState('error');
+      }
     } finally {
       window.clearTimeout(timeout);
       if (request.current === controller) request.current = null;
@@ -63,7 +74,9 @@ export function ResearchAudio({ ticker, research }: { ticker: string; research: 
     </button></div>
     <p className="ie-muted">Voice powered by ElevenLabs</p>
     {oversized && <p role="status">This research exceeds the audio size limit. The complete text remains available above.</p>}
-    {state === 'error' && <p role="alert">Research audio unavailable. The research document remains available. Verification may have expired; regenerate research before retrying.</p>}
+    {state === 'error' && <p role="alert">{timedOut
+      ? 'Research audio timed out. The research document remains available. Try again.'
+      : 'Research audio unavailable. The research document remains available. Verification may have expired; regenerate research before retrying.'}</p>}
     {audioUrl && !audioError && <>
       <audio className="ie-audio-player" ref={audio} controls preload="none" src={audioUrl}
         aria-label={`AI research for ${ticker}`} onError={() => setAudioError(true)} style={{ maxWidth: '100%' }} />

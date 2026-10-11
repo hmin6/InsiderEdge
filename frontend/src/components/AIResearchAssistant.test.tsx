@@ -31,7 +31,10 @@ async function harness(run: (view: ReactTestRenderer, calls: Call[], revoked: st
     act(() => { view = create(<AIResearchAssistant ticker="AAPL" evidenceKey="2026-10-02" />); });
     await run(view!, calls, revoked);
   } finally {
-    if (view) act(() => view!.unmount());
+    if (view) await act(async () => {
+      view!.unmount();
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
     globalThis.fetch = original.fetch; globalThis.window = original.window;
     URL.createObjectURL = original.create; URL.revokeObjectURL = original.revoke;
   }
@@ -222,4 +225,104 @@ test('only available source sections render and unsupported text is never synthe
   assert.equal(document.sections.some(section => section.title === 'Risks / Counter-Evidence'), false);
   assert.equal(combineResearch(null, null), null);
   assert.ok(document.sections.every(section => section.items.every(item => Object.values(explanation).flat().includes(item))));
+});
+
+
+/** Advance only browser request deadlines; no wall-clock waits or provider calls. */
+function audioClock() {
+  let now = 0, next = 0;
+  const timers = new Map<number, { at: number; run: () => void }>();
+  globalThis.window = {
+    setTimeout(run: () => void, delay: number) {
+      const id = ++next;
+      timers.set(id, { at: now + delay, run });
+      return id;
+    },
+    clearTimeout(id: number) { timers.delete(id); },
+  } as unknown as Window & typeof globalThis;
+  return { advance(milliseconds: number) {
+    now += milliseconds;
+    for (const [id, timer] of timers) if (timer.at <= now) { timers.delete(id); timer.run(); }
+  } };
+}
+
+function pendingAudio() {
+  let signal: AbortSignal;
+  let complete!: (response: Response) => void;
+  const fetcher: typeof fetch = async (url, init) => {
+    if (endpoint(String(url)) !== 'research-audio') return response(String(url), init);
+    signal = init!.signal!;
+    return new Promise<Response>((resolve, reject) => {
+      complete = resolve;
+      signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    });
+  };
+  return { fetcher, get signal() { return signal; }, complete() {
+    complete(Response.json({ ticker: 'AAPL', transcript: fixture.script, status: 'ok',
+      audio_base64: 'AA==', audio_mime_type: 'audio/mpeg' }));
+  } };
+}
+
+test('audio survives ordinary rerenders and 59,999ms; exactly 60s aborts without removing research', async () => {
+  const pending = pendingAudio();
+  await harness(async (view, calls) => {
+    await click(view, 'Generate AI Research');
+    const clock = audioClock();
+    act(() => button(view, 'Listen to Research').props.onClick());
+    act(() => view.update(<AIResearchAssistant ticker="AAPL" evidenceKey="2026-10-02" />));
+    assert.equal(pending.signal.aborted, false);
+    act(() => clock.advance(30_300));
+    assert.equal(pending.signal.aborted, false);
+    act(() => clock.advance(29_699));
+    assert.equal(pending.signal.aborted, false);
+    await act(async () => { clock.advance(1); await new Promise(resolve => setTimeout(resolve, 0)); });
+    assert.equal(pending.signal.aborted, true);
+    assert.equal(summaries(view).length, 1);
+    assert.ok(content(view).includes('Research audio timed out. The research document remains available. Try again.'));
+    assert.ok(!content(view).includes('Verification may have expired'));
+    assert.ok(button(view, 'Retry Listen to Research'));
+    assert.equal(calls.length, 3);
+    act(() => button(view, 'Retry Listen to Research').props.onClick());
+    assert.equal(pending.signal.aborted, false);
+    assert.ok(!content(view).includes('Research audio timed out.'));
+  }, pending.fetcher);
+});
+
+for (const reset of ['unmount', 'company', 'event', 'regeneration']) {
+  test(`${reset} immediately cancels pending audio before its deadline`, async () => {
+    const pending = pendingAudio();
+    await harness(async (view) => {
+      await click(view, 'Generate AI Research');
+      const clock = audioClock();
+      act(() => button(view, 'Listen to Research').props.onClick());
+      assert.equal(pending.signal.aborted, false);
+      await act(async () => {
+        if (reset === 'unmount') view.unmount();
+        else if (reset === 'regeneration') button(view, 'Generate AI Research').props.onClick();
+        else view.update(<AIResearchAssistant ticker={reset === 'company' ? 'BRK.B' : 'AAPL'}
+          evidenceKey={reset === 'event' ? '2026-10-05' : '2026-10-02'} />);
+      });
+      assert.equal(pending.signal.aborted, true);
+      act(() => clock.advance(60_000));
+      assert.ok(!content(view).includes('Research audio timed out.'));
+    }, pending.fetcher);
+  });
+}
+
+test('audio completed at production-like 30.3s remains playable after the deadline', async () => {
+  const pending = pendingAudio();
+  await harness(async (view, calls) => {
+    await click(view, 'Generate AI Research');
+    const clock = audioClock();
+    act(() => button(view, 'Listen to Research').props.onClick());
+    act(() => clock.advance(30_300));
+    await act(async () => { pending.complete(); await new Promise(resolve => setTimeout(resolve, 0)); });
+    assert.equal(view.root.findByType('audio').props.src, 'blob:research');
+    assert.equal(pending.signal.aborted, false);
+    act(() => clock.advance(60_000));
+    assert.equal(pending.signal.aborted, false);
+    assert.equal(view.root.findByType('audio').props.src, 'blob:research');
+    assert.equal(summaries(view).length, 1);
+    assert.equal(calls.length, 3);
+  }, pending.fetcher);
 });
