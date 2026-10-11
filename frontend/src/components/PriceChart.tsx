@@ -201,11 +201,11 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
 
   return (
     <div ref={setReadoutHost} className="ie-price-chart" style={{ width: "100%", height: 400, position: "relative" }}>
-      <div style={{ position: "absolute", top: 0, right: 0, zIndex: 2, display: "flex", flexDirection: "column", gap: 4 }}>
-        {zoomRange && <button type="button" className="ie-button"
-          onClick={() => setZoomRange(null)}>Reset zoom</button>}
+      <div style={{ position: "absolute", top: 0, right: 0, zIndex: 2, display: "flex", gap: 4 }}>
         <button type="button" className="ie-button" disabled={!markedPoints.length}
           onClick={() => setMarkedPoints([])}>Clear marks</button>
+        {zoomRange && <button type="button" className="ie-button"
+          onClick={() => setZoomRange(null)}>Reset zoom</button>}
       </div>
       <ResponsiveContainer>
         <LineChart
