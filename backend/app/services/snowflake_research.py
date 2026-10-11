@@ -28,6 +28,18 @@ class Context(BaseModel):
     filing_context: Section
 
 
+def normalize_context_lists(content):
+    """Clamp only known list fields; leave all other validation to Context."""
+    if not isinstance(content, dict):
+        return content
+    normalized = content.copy()
+    for field in ('event_context', 'research_considerations', 'filing_context'):
+        value = content.get(field)
+        if isinstance(value, list) and len(value) > 6:
+            normalized[field] = value[:6]
+    return normalized
+
+
 SCHEMA_FIELDS = frozenset({'event_context', 'research_considerations', 'filing_context',
                            'missing_key', 'unexpected_key', 'wrong_type',
                            'empty_required_list', 'other'})
@@ -424,7 +436,7 @@ class SnowflakeProvider:
                 raise ValueError
             content = json.loads(choices[0]['message']['content'])
             category = 'schema_validation_failed'
-            context = Context.model_validate(content)
+            context = Context.model_validate(normalize_context_lists(content))
             for section in context.model_dump().values():
                 for text in section:
                     category = 'safety_language_rejected'
