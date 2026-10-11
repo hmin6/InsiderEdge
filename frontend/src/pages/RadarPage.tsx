@@ -30,7 +30,7 @@ const EdgeMascot = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 120 120"
-    style={{ width: "70px", height: "70px", flexShrink: 0 }}
+    style={{ width: "85px", height: "85px", flexShrink: 0 }}
   >
     <circle cx="60" cy="60" r="60" fill="#090e17" />
     <circle
@@ -74,12 +74,12 @@ const MascotTooltip = ({
       display: "flex",
       alignItems: "center",
       backgroundColor: "var(--ie-panel)",
-      padding: "20px",
+      padding: "24px",
       borderRadius: "16px",
       color: "var(--ie-text)",
-      maxWidth: "450px",
-      gap: "15px",
-      boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+      maxWidth: "550px",
+      gap: "20px",
+      boxShadow: "0 10px 40px rgba(0,0,0,0.6)",
       border: "1px solid var(--ie-border)",
       backdropFilter: "blur(12px)",
       zIndex: 10000,
@@ -88,7 +88,7 @@ const MascotTooltip = ({
     <EdgeMascot />
     <div style={{ flexGrow: 1 }}>
       <div
-        style={{ fontSize: "15px", marginBottom: "15px", lineHeight: "1.5" }}
+        style={{ fontSize: "17px", marginBottom: "20px", lineHeight: "1.6" }} // <-- Increased text size and line height
       >
         {step.content}
       </div>
@@ -101,6 +101,7 @@ const MascotTooltip = ({
             background: "transparent",
             border: "none",
             color: "var(--ie-muted)",
+            fontSize: "15px",
           }}
         >
           Skip
@@ -110,7 +111,11 @@ const MascotTooltip = ({
             type="button"
             {...backProps}
             className="ie-button"
-            style={{ background: "transparent", border: "none" }}
+            style={{
+              background: "transparent",
+              border: "none",
+              fontSize: "15px",
+            }}
           >
             Back
           </button>
@@ -119,6 +124,7 @@ const MascotTooltip = ({
           type="button"
           {...primaryProps}
           className="ie-button ie-button--primary"
+          style={{ fontSize: "15px" }}
         >
           {isLastStep ? "Got it!" : "Next"}
         </button>
@@ -126,7 +132,6 @@ const MascotTooltip = ({
     </div>
   </div>
 );
-
 const tourSteps: any[] = [
   {
     target: "body",
@@ -357,9 +362,10 @@ export default function RadarPage() {
   useEffect(() => {
     if (data.length > 0) {
       const hasSeenRadarTour = localStorage.getItem(
-        "ie_has_seen_radar_tour_v2",
+        "ie_has_seen_radar_tour_v3",
       );
       if (!hasSeenRadarTour) {
+        localStorage.setItem("ie_has_seen_radar_tour_v3", "true");
         const timer = setTimeout(() => setRunTour(true), 800);
         return () => clearTimeout(timer);
       }
@@ -370,7 +376,6 @@ export default function RadarPage() {
     const { status } = joyrideData;
     if (["finished", "skipped"].includes(status)) {
       setRunTour(false);
-      localStorage.setItem("ie_has_seen_radar_tour_v2", "true");
     }
   };
 
