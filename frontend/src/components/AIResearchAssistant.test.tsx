@@ -263,7 +263,7 @@ function pendingAudio() {
   } };
 }
 
-test('audio survives ordinary rerenders and 59,999ms; exactly 60s aborts without removing research', async () => {
+test('audio survives ordinary rerenders and 74,999ms; exactly 75s aborts without removing research', async () => {
   const pending = pendingAudio();
   await harness(async (view, calls) => {
     await click(view, 'Generate AI Research');
@@ -273,7 +273,9 @@ test('audio survives ordinary rerenders and 59,999ms; exactly 60s aborts without
     assert.equal(pending.signal.aborted, false);
     act(() => clock.advance(30_300));
     assert.equal(pending.signal.aborted, false);
-    act(() => clock.advance(29_699));
+    act(() => clock.advance(29_700));
+    assert.equal(pending.signal.aborted, false);
+    act(() => clock.advance(14_999));
     assert.equal(pending.signal.aborted, false);
     await act(async () => { clock.advance(1); await new Promise(resolve => setTimeout(resolve, 0)); });
     assert.equal(pending.signal.aborted, true);
@@ -303,23 +305,23 @@ for (const reset of ['unmount', 'company', 'event', 'regeneration']) {
           evidenceKey={reset === 'event' ? '2026-10-05' : '2026-10-02'} />);
       });
       assert.equal(pending.signal.aborted, true);
-      act(() => clock.advance(60_000));
+      act(() => clock.advance(75_000));
       assert.ok(!content(view).includes('Research audio timed out.'));
     }, pending.fetcher);
   });
 }
 
-test('audio completed at production-like 30.3s remains playable after the deadline', async () => {
+test('audio completed at production-like 50s remains playable after the deadline', async () => {
   const pending = pendingAudio();
   await harness(async (view, calls) => {
     await click(view, 'Generate AI Research');
     const clock = audioClock();
     act(() => button(view, 'Listen to Research').props.onClick());
-    act(() => clock.advance(30_300));
+    act(() => clock.advance(50_000));
     await act(async () => { pending.complete(); await new Promise(resolve => setTimeout(resolve, 0)); });
     assert.equal(view.root.findByType('audio').props.src, 'blob:research');
     assert.equal(pending.signal.aborted, false);
-    act(() => clock.advance(60_000));
+    act(() => clock.advance(75_000));
     assert.equal(pending.signal.aborted, false);
     assert.equal(view.root.findByType('audio').props.src, 'blob:research');
     assert.equal(summaries(view).length, 1);
