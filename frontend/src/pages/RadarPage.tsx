@@ -362,11 +362,13 @@ export default function RadarPage() {
   useEffect(() => {
     if (data.length > 0) {
       const hasSeenRadarTour = localStorage.getItem(
-        "ie_has_seen_radar_tour_v3",
+        "ie_has_seen_radar_tour_v4",
       );
       if (!hasSeenRadarTour) {
-        localStorage.setItem("ie_has_seen_radar_tour_v3", "true");
-        const timer = setTimeout(() => setRunTour(true), 800);
+        const timer = setTimeout(() => {
+          localStorage.setItem("ie_has_seen_radar_tour_v4", "true");
+          setRunTour(true);
+        }, 800);
         return () => clearTimeout(timer);
       }
     }

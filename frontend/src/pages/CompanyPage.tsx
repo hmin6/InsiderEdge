@@ -245,14 +245,17 @@ function CompanyResearch({ ticker }: { ticker: string }) {
 
   useEffect(() => {
     if (company.data) {
-      const hasSeenTour = localStorage.getItem("ie_has_seen_company_tour_v3");
+      const hasSeenTour = localStorage.getItem("ie_has_seen_company_tour_v4");
       if (!hasSeenTour) {
-        localStorage.setItem("ie_has_seen_company_tour_v3", "true");
-        const timer = setTimeout(() => setRunTour(true), 800);
+        const timer = setTimeout(() => {
+          // Moved INSIDE the timeout to survive React Strict Mode!
+          localStorage.setItem("ie_has_seen_company_tour_v4", "true");
+          setRunTour(true);
+        }, 800);
         return () => clearTimeout(timer);
       }
     }
-  }, [company.data, statistics.loading, prediction.loading]);
+  }, [company.data]);
 
   const handleJoyrideCallback = (data: any) => {
     const { status } = data;
