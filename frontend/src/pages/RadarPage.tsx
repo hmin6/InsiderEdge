@@ -1,3 +1,4 @@
+import { RadarComponentValues } from "../components/RadarComponentValues";
 import { ResearchPriorityValue } from "../components/ResearchPriorityValue";
 import { SignalAvailability } from "../components/SignalAvailability";
 import {
@@ -13,7 +14,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Joyride, TooltipRenderProps } from "react-joyride";
 import { fetchRadar, usingResearchMocks } from "../api/client";
 import { useResource } from "../hooks/useResource";
-import { rankRadar, numeric } from "../components/ResearchStates";
+import { rankRadar } from "../components/ResearchStates";
 import type { RadarItem } from "../types/api";
 import {
   AppShell,
@@ -167,6 +168,7 @@ type SortField =
   | "company"
   | "status"
   | "anomaly"
+  | "statistical"
   | "activity"
   | "dislocation"
   | "model_prob"
@@ -177,6 +179,7 @@ const sortOptions: { key: Exclude<SortField, "default">; label: string }[] = [
   { key: "status", label: "Status" },
   { key: "anomaly", label: "Anomaly" },
   { key: "activity", label: "Activity" },
+  { key: "statistical", label: "Statistical Evidence" },
   { key: "dislocation", label: "Dislocation" },
   { key: "model_prob", label: "Model Probability" },
   { key: "priority", label: "Research Priority Score" },
@@ -233,6 +236,7 @@ function directionOptions(
 const metricFields = {
   anomaly: "anomaly_score",
   activity: "activity_score",
+  statistical: "statistical_score",
   dislocation: "dislocation_score",
   model_prob: "ml_outperformance_probability",
   priority: "insider_edge_score",
@@ -835,6 +839,7 @@ export default function RadarPage() {
                 <th>Status</th>
                 <th className="ie-number">Anomaly</th>
                 <th className="ie-number">Activity</th>
+                <th className="ie-number">Statistical Evidence</th>
                 <th className="ie-number">Dislocation</th>
                 <th className="ie-number">Model probability</th>
                 <th className="ie-number ie-priority-column">
@@ -845,7 +850,7 @@ export default function RadarPage() {
             <tbody>
               {data.length > 0 && !filteredData.length && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     No matching research events. Clear the filter to see the
                     full queue, or search a ticker to open its research page.
                   </td>
@@ -864,16 +869,9 @@ export default function RadarPage() {
                     </Link>
                   </td>
                   <td>
-                    <SignalAvailability evidence={item} />
+                    <SignalAvailability evidence={item} compact />
                   </td>
-                  <td className="ie-number">{numeric(item.anomaly_score)}</td>
-                  <td className="ie-number">{numeric(item.activity_score)}</td>
-                  <td className="ie-number">
-                    {numeric(item.dislocation_score)}
-                  </td>
-                  <td className="ie-number">
-                    {numeric(item.ml_outperformance_probability, true)}
-                  </td>
+                  <RadarComponentValues item={item} />
                   <td className="ie-number ie-priority-column">
                     <ResearchPriorityValue score={item.insider_edge_score} status={item.score_status} coverage={item.quantitative_coverage} />
                   </td>

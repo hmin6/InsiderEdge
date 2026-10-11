@@ -236,3 +236,16 @@ def test_screenshot_observed_activity_examples(ticker, count, value, expected):
     actual = estimated_activity_index(count, value)
     assert actual == pytest.approx(expected, rel=0, abs=1e-10), ticker
     assert round(actual, 2) == (71.82 if ticker == 'AMAT' else 58.50)
+
+
+def test_not_scored_api_mapping_preserves_valid_estimate_and_null_components():
+    from app.services.core_reads import radar_item
+    session, event, _ = inputs()
+    coverage = quantitative_coverage(session, event, None)
+    item = radar_item(event, None, None, NS(ticker=event.ticker, company_name='Synthetic', sector='Technology'), coverage)
+    payload = item.model_dump(mode='json')
+    assert payload['availability_status'] == 'not_scored'
+    assert payload['quantitative_coverage']['estimated_activity_index'] == 6
+    for key in ['insider_edge_score', 'anomaly_score', 'activity_score', 'statistical_score',
+                'dislocation_score', 'ml_outperformance_probability']:
+        assert payload[key] is None
