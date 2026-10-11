@@ -814,13 +814,13 @@ export default function RadarPage() {
                                           event.currentTarget.parentElement?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
                                         }
                                       }}>
-                                      {(["asc", "desc"] as const).map(order => <button key={order} type="button"
+                                      {(["desc", "asc"] as const).map(order => <button key={order} type="button"
                                         role="menuitemradio" tabIndex={0}
                                         aria-checked={sort.field === "priority" && sort.subType === category && sort.direction === order}
                                         onClick={() => {
                                           setSort({ field: "priority", direction: order, subType: category });
                                           closeSort(); sortTrigger.current?.focus();
-                                        }}>{order === "asc" ? "Ascending (Low to High)" : "Descending (High to Low)"}</button>)}
+                                        }}>{order === "asc" ? "Low to High(Asceding)" : "High to Low(Desceding)"}</button>)}
                                     </div>}
                                   </div>
                                 )) : directionOptions(option.key).map((choice) => (
