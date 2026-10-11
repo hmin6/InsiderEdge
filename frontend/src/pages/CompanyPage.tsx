@@ -1,4 +1,4 @@
-import { QuantitativeCoverage } from "../components/QuantitativeCoverage";
+import { CompanyScore } from "../components/ResearchStates";
 import { AIResearchAssistant } from "../components/AIResearchAssistant";
 import { useCallback, useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
@@ -19,7 +19,6 @@ import {
   Panel,
   PanelSkeleton,
   StateMessage,
-  InsiderEdgeScore,
   PriceChart,
   PanelBoundary,
   EventStudyEvidence,
@@ -325,14 +324,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
           <div className="ie-stack">
             <div className="tour-score-panel">
               <PanelBoundary label="Score">
-                {data.latest_signal ? (
-                  <InsiderEdgeScore evidence={data.latest_signal} />
-                ) : (
-                  <Panel title={data.quantitative_coverage?.status === 'descriptive_only' ? 'Available quantitative data' : 'InsiderEdge Score'}>
-                    {data.quantitative_coverage ? <QuantitativeCoverage data={data.quantitative_coverage} /> :
-                      <StateMessage title="No recent events">No score has been invented.</StateMessage>}
-                  </Panel>
-                )}
+                <CompanyScore data={data} />
               </PanelBoundary>
             </div>
 

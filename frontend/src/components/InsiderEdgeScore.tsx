@@ -1,3 +1,5 @@
+import { selectResearchPriority } from "./ResearchPriorityValue";
+import { formatCurrency, formatNumber } from "../utils/format";
 import { QuantitativeCoverage } from "./QuantitativeCoverage";
 import { SignalAvailability } from "./SignalAvailability";
 import type { ScoreEvidence } from "../types/score";
@@ -16,7 +18,11 @@ function valid(value: number | null, maximum = 100): number | null {
 /** Pass a RadarItem/latest_signal directly. All final numbers remain backend values. */
 export function InsiderEdgeScore({ evidence }: { evidence: ScoreEvidence }) {
   const { ref, progress } = useScoreReveal();
-  const score = valid(evidence.insider_edge_score);
+  const selected = selectResearchPriority(evidence.insider_edge_score, evidence.score_status, evidence.quantitative_coverage);
+  // Legacy responses retain their backend-supplied partial score when no coverage exists.
+  const score = selected?.value ?? (!evidence.quantitative_coverage ? valid(evidence.insider_edge_score) : null);
+  const title = selected?.label === 'Provisional' ? 'Provisional Index'
+    : selected?.label === 'Estimated Activity' ? 'Estimated Activity Index' : 'InsiderEdge Score';
   const probability = valid(evidence.ml_outperformance_probability, 1);
   // Scaling probability to percent is unit formatting, not composite-score calculation.
   const components = [
@@ -53,7 +59,7 @@ export function InsiderEdgeScore({ evidence }: { evidence: ScoreEvidence }) {
   ];
   return (
     <Panel
-      title="InsiderEdge Score"
+      title={title}
       actions={
         <ScoreStatusBadge
           status={evidence.score_status}
@@ -82,14 +88,14 @@ export function InsiderEdgeScore({ evidence }: { evidence: ScoreEvidence }) {
               <span className="ie-sr-only">
                 {score === null
                   ? "Score unavailable"
-                  : `${score.toFixed(2)} out of 100`}
+                  : `${formatNumber(score)} out of 100`}
               </span>
               <strong aria-hidden="true">
                 {score === null
                   ? "—"
                   : progress === 1
-                    ? score.toFixed(2)
-                    : (score * progress).toFixed(2)}
+                    ? formatNumber(score)
+                    : formatNumber(score * progress)}
               </strong>
               <span aria-hidden="true">
                 {score === null ? "Unavailable" : "/ 100"}
@@ -99,7 +105,7 @@ export function InsiderEdgeScore({ evidence }: { evidence: ScoreEvidence }) {
           <p className="ie-score-priority">Research Priority</p>
           <p className="ie-muted">Higher scores prioritize deeper research.</p>
         </div>
-        <dl className="ie-score-components">
+        {components.every(component => component.value === null) ? <p className="ie-muted">{evidence.availability_status === 'not_scored' ? 'Model components not evaluated.' : 'No model component values available.'}</p> : <dl className="ie-score-components">
           {components.map((component) => (
             <div className="ie-score-component" key={component.key}>
               <dt>
@@ -111,7 +117,7 @@ export function InsiderEdgeScore({ evidence }: { evidence: ScoreEvidence }) {
                   <span className="ie-muted">Unavailable</span>
                 ) : (
                   <>
-                    <strong>{component.value.toFixed(2)}</strong>{" "}
+                    <strong>{formatNumber(component.value)}</strong>{" "}
                     <span className="ie-muted">{component.unit}</span>
                   </>
                 )}
@@ -127,9 +133,14 @@ export function InsiderEdgeScore({ evidence }: { evidence: ScoreEvidence }) {
               )}
             </div>
           ))}
-        </dl>
+        </dl>}
       </div>
-      {(score === null || evidence.quantitative_coverage?.status === 'provisional') && <QuantitativeCoverage data={evidence.quantitative_coverage} />}
+      {evidence.quantitative_coverage && <div aria-label="Available insider activity">
+        {evidence.quantitative_coverage.purchase_count !== null && <p>Qualifying purchases: {evidence.quantitative_coverage.purchase_count}</p>}
+        {evidence.quantitative_coverage.purchase_value !== null && <p>Purchase value: {formatCurrency(evidence.quantitative_coverage.purchase_value)}</p>}
+        <p>Information date: {evidence.quantitative_coverage.information_date}</p>
+      </div>}
+      {(selected?.label !== 'Complete' ) && <QuantitativeCoverage data={evidence.quantitative_coverage} />}
       <div className="ie-score-note">
         <SignalAvailability evidence={evidence} showBadge={false} />
         {!evidence.availability_status &&

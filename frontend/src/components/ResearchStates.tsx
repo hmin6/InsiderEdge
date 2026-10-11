@@ -302,6 +302,11 @@ function MetricCard({
 export function CompanyScore({ data }: { data: CompanyResponse }) {
   if (data.latest_signal)
     return <InsiderEdgeScore evidence={data.latest_signal} />;
+  if (data.latest_public_event_day !== null && data.quantitative_coverage) return <InsiderEdgeScore evidence={{
+    insider_edge_score: null, anomaly_score: null, activity_score: null, statistical_score: null,
+    ml_outperformance_probability: null, dislocation_score: null, availability_status: 'not_scored',
+    score_status: 'insufficient_data', quantitative_coverage: data.quantitative_coverage,
+  }} />;
   return (
     <Panel title="InsiderEdge Score">
       {data.latest_public_event_day !== null ? (
