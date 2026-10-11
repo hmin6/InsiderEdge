@@ -4,7 +4,7 @@ import { requestResearchAudio, researchScript, MAX_RESEARCH_AUDIO_CHARACTERS, ty
 import { API_BASE_URL } from '../api/base';
 import type { BriefResponse } from '../types/brief';
 
-const RESEARCH_AUDIO_TIMEOUT_MS = 60_000;
+const RESEARCH_AUDIO_TIMEOUT_MS = 75_000;
 
 export function ResearchAudio({ ticker, research }: { ticker: string; research: ResearchAudioRequest }) {
   const oversized = researchScript(ticker, research.document).length > MAX_RESEARCH_AUDIO_CHARACTERS;
