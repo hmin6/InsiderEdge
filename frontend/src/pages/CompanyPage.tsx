@@ -128,8 +128,16 @@ function CompanyResearch({ ticker }: { ticker: string }) {
             </PanelBoundary>
 
             {/* Top Grid: Stacks Insider/Stats on Left, Market/Prediction on Right. alignItems: start prevents stretching! */}
-            <div className="ie-grid" style={{ alignItems: "start" }}>
-              <div className="ie-stack">
+            <div className="ie-grid" style={{ alignItems: "stretch" }}>
+              {/* Left Column */}
+              <div
+                className="ie-stack"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "100%",
+                }}
+              >
                 <Panel title="Recent Insider Activity">
                   {insiders.loading ? (
                     <PanelSkeleton label="Loading insider history" rows={2} />
@@ -146,38 +154,42 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                   )}
                 </Panel>
 
+                {/* The inner div flexGrow: 1 ensures the Statistics panels stretch down to align with the right column */}
                 <PanelBoundary label="Statistics">
-                  {statistics.loading ? (
-                    <PanelSkeleton label="Loading statistics" rows={4} />
-                  ) : statistics.error || !statistics.data ? (
-                    <Panel title="Statistical Evidence">
-                      <StateMessage
-                        kind="error"
-                        title="Statistical evidence unavailable"
-                      >
-                        Missing values are not zero.
-                      </StateMessage>
-                    </Panel>
-                  ) : (
-                    <StatisticsEvidence data={statistics.data} />
-                  )}
+                  <div
+                    style={{
+                      flexGrow: 1,
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    {statistics.loading ? (
+                      <PanelSkeleton label="Loading statistics" rows={4} />
+                    ) : statistics.error || !statistics.data ? (
+                      <Panel title="Statistical Evidence" style={{ flex: 1 }}>
+                        <StateMessage
+                          kind="error"
+                          title="Statistical evidence unavailable"
+                        >
+                          Missing values are not zero.
+                        </StateMessage>
+                      </Panel>
+                    ) : (
+                      <StatisticsEvidence data={statistics.data} />
+                    )}
+                  </div>
                 </PanelBoundary>
               </div>
 
-              <div className="ie-stack">
-                <Panel title="Market Context">
-                  <div className="ie-metric-grid" style={{ marginTop: 0 }}>
-                    <div
-                      className="ie-metric-card"
-                      title={`Raw value: ${data.latest_signal?.dislocation_score}`}
-                    >
-                      <div className="ie-metric-label">Dislocation Score</div>
-                      <div className="ie-metric-value">
-                        {numeric(data.latest_signal?.dislocation_score)}
-                      </div>
-                    </div>
-                  </div>
-                </Panel>
+              {/* Right Column */}
+              <div
+                className="ie-stack"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "100%",
+                }}
+              >
                 <PanelBoundary label="Prediction">
                   {prediction.loading ? (
                     <PanelSkeleton label="Loading model prediction" rows={2} />
@@ -192,15 +204,25 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                   )}
                 </PanelBoundary>
 
+                {/* The inner div flexGrow: 1 ensures Event Study fills out the remaining vertical space */}
                 <PanelBoundary label="Event Study">
-                  {statistics.loading ? (
-                    <PanelSkeleton label="Loading event study" rows={4} />
-                  ) : statistics.error || !statistics.data ? null : (
-                    <EventStudyEvidence data={statistics.data} />
-                  )}
+                  <div
+                    style={{
+                      flexGrow: 1,
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    {statistics.loading ? (
+                      <PanelSkeleton label="Loading event study" rows={4} />
+                    ) : statistics.error || !statistics.data ? null : (
+                      <EventStudyEvidence data={statistics.data} />
+                    )}
+                  </div>
                 </PanelBoundary>
               </div>
             </div>
+            
 
             {/* Price Chart */}
             <PanelBoundary label="Price history">
