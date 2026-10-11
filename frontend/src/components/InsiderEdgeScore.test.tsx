@@ -35,7 +35,7 @@ test("partial score preserves null and explicit zero distinctly", () => {
   assert.match(html, /Partial evidence/);
   assert.match(html, /Some evidence is unavailable/);
   assert.match(html, />0.00<\/strong>/);
-  assert.match(html, /Unavailable/);
+  assert.doesNotMatch(html, /ie-score-letter">S<|ie-muted">Unavailable/);
   assert.equal((html.match(/class="ie-score-bar"/g) ?? []).length, 4);
   assert.match(html, />73.13<\/strong>/);
 });

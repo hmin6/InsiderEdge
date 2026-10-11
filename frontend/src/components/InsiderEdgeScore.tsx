@@ -56,7 +56,7 @@ export function InsiderEdgeScore({ evidence }: { evidence: ScoreEvidence }) {
       value: valid(evidence.dislocation_score),
       unit: "/ 100",
     },
-  ];
+  ].filter(component => component.value !== null && !evidence.unavailable_components?.includes(component.key) && evidence.availability_status !== "not_scored");
   return (
     <Panel
       title={title}

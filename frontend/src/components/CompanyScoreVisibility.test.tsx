@@ -29,3 +29,13 @@ test('estimate zero remains visible, absent estimate never manufactured', () => 
   assert.match(render(null), /Score unavailable/);
   assert.doesNotMatch(render(null), /class="ie-score-fill"/);
 });
+
+test('explicitly unavailable score components are hidden while supported zero and disclosures remain', () => {
+  const html = renderToStaticMarkup(<CompanyScore data={{...DEV_MOCK_COMPANY, latest_signal:{...DEV_MOCK_RADAR.items[0],
+    score_status:'insufficient_data', insider_edge_score:null, unavailable_components:['A','M','S','D'], activity_score:0,
+    quantitative_coverage:coverage}}} />);
+  assert.match(html, /Estimated Activity Index/);
+  assert.match(html, />0.00<\/strong>/);
+  assert.equal((html.match(/class="ie-score-component"/g) ?? []).length, 1);
+  for (const text of ['Qualifying purchases: 1', '$0.00', '2024-01-01', 'Score methodology and evidence']) assert.ok(html.includes(text), text);
+});
