@@ -178,8 +178,8 @@ type PriorityClass = "Complete" | "Estimated Activity" | "Provisional";
 const priorityClasses: PriorityClass[] = ["Complete", "Estimated Activity", "Provisional"];
 type SortDirection = "none" | "asc" | "desc";
 const sortOptions: { key: Exclude<SortField, "default">; label: string }[] = [
-  { key: "company", label: "Company" },
   { key: "status", label: "Status" },
+  { key: "company", label: "Company" },
   { key: "anomaly", label: "Anomaly" },
   { key: "activity", label: "Activity" },
   { key: "statistical", label: "Statistical Evidence" },
@@ -212,15 +212,8 @@ function calculateFlyoutCoords(
 function sortLabel(field: SortField, direction: SortDirection) {
   if (direction === "none") return "—";
   if (field === "company") return direction === "asc" ? "A-Z" : "Z-A";
-  if (field === "status")
-    return direction === "desc" ? "Complete first" : "Insufficient first";
+  if (field === "status") return "Sections";
   return direction === "desc" ? "High-Low" : "Low-High";
-}
-
-function prioritySortLabel(classification?: PriorityClass, direction: SortDirection = "none") {
-  if (!classification) return "Research Priority Score";
-  const order = direction === "asc" ? "Ascending" : direction === "desc" ? "Descending" : null;
-  return `Research Priority Score (${classification}${order ? ` · ${order}` : ""})`;
 }
 
 function directionOptions(
@@ -232,12 +225,7 @@ function directionOptions(
           { direction: "asc" as const, label: "A → Z (Ascending)" },
           { direction: "desc" as const, label: "Z → A (Descending)" },
         ]
-      : field === "status"
-        ? [
-            { direction: "desc" as const, label: "Complete first" },
-            { direction: "asc" as const, label: "Insufficient first" },
-          ]
-        : [
+      : [
             { direction: "desc" as const, label: "High → Low (Descending)" },
             { direction: "asc" as const, label: "Low → High (Ascending)" },
           ]),
@@ -258,30 +246,24 @@ function compareRadar(
   b: RadarItem,
   key: SortField,
   direction: SortDirection,
-  subType?: PriorityClass,
 ) {
-  if (key === "default" || (direction === "none" && !subType)) return 0;
+  if (key === "default" || direction === "none") return 0;
   const multiplier = direction === "asc" ? 1 : -1;
-  if (key === "priority" && subType) {
+  if (key === "priority") {
     const left = selectResearchPriority(a.insider_edge_score, a.score_status, a.quantitative_coverage);
     const right = selectResearchPriority(b.insider_edge_score, b.score_status, b.quantitative_coverage);
-    const leftMatches = left?.label === subType;
-    const rightMatches = right?.label === subType;
-    if (leftMatches !== rightMatches) return leftMatches ? -1 : 1;
-    return direction !== "none" && leftMatches && rightMatches && left && right ? multiplier * (left.value - right.value) : 0;
+    const classes = ["Complete", "Provisional", "Estimated Activity"];
+    const bucket = (label?: string) => label ? classes.indexOf(label) : classes.length;
+    const partition = bucket(left?.label) - bucket(right?.label);
+    if (partition) return partition;
+    return left && right ? multiplier * (left.value - right.value) : 0;
   }
   if (key === "company")
     return (
       multiplier *
       a.ticker.localeCompare(b.ticker, "en", { sensitivity: "base" })
     );
-  if (key === "status") {
-    const completeness = (status: string) =>
-      status === "complete" ? 2 : status === "partial" ? 1 : 0;
-    return (
-      multiplier * (completeness(a.score_status) - completeness(b.score_status))
-    );
-  }
+  if (key === "status") return 0;
   const left = a[metricFields[key]],
     right = b[metricFields[key]];
   const leftValid = typeof left === "number" && Number.isFinite(left);
@@ -294,17 +276,15 @@ function compareRadar(
 export default function RadarPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const [statusSections, setStatusSections] = useState(false);
   const [sort, setSort] = useState<{
     field: SortField;
     direction: SortDirection;
-    subType?: PriorityClass;
   }>({ field: "default", direction: "none" });
   const [openField, setOpenField] = useState<Exclude<
     SortField,
     "default"
   > | null>(null);
-  const [openPriorityClass, setOpenPriorityClass] = useState<PriorityClass | null>(null);
-  const [directionPosition, setDirectionPosition] = useState({ left: 210, top: 0 });
   const [flyoutPosition, setFlyoutPosition] = useState({ left: 12, top: 12 });
   const flyoutPanel = useRef<HTMLDivElement>(null);
   const closeAllTimerRef = useRef<number | null>(null);
@@ -332,7 +312,17 @@ export default function RadarPage() {
         item.ticker.toLowerCase().includes(filter) ||
         item.company_name.toLowerCase().includes(filter),
     )
-    .sort((a, b) => compareRadar(a, b, sort.field, sort.direction, sort.subType));
+    .sort((a, b) => compareRadar(a, b, sort.field, sort.direction));
+  const tableRows: { item?: RadarItem; section?: string }[] = statusSections
+    ? [...priorityClasses.filter(category => category !== "Estimated Activity"), "Estimated Activity", "Unavailable"]
+      .flatMap(category => {
+        const rows = filteredData.filter(item => (selectResearchPriority(item.insider_edge_score,
+          item.score_status, item.quantitative_coverage)?.label ?? "Unavailable") === category);
+        return category === "Unavailable" && !rows.length ? []
+          : [{ section: category }, ...rows.map(item => ({ item }))];
+      })
+    : filteredData.map(item => ({ item }));
+
 
   useEffect(() => {
     if (data.length > 0) {
@@ -368,7 +358,6 @@ export default function RadarPage() {
     clearTimer();
     setSortOpen(false);
     setOpenField(null);
-    setOpenPriorityClass(null);
   }
 
   function scheduleClose() {
@@ -437,7 +426,7 @@ export default function RadarPage() {
     clearTimer();
     const bounds = row.getBoundingClientRect();
     setFlyoutPosition(
-      calculateFlyoutCoords(bounds, window.innerWidth, window.innerHeight, 220, 160, -10, field === "priority"),
+      calculateFlyoutCoords(bounds, window.innerWidth, window.innerHeight, 220, 160, -10, false),
     );
     focusFlyout.current = focus;
     setOpenField(field);
@@ -455,7 +444,6 @@ export default function RadarPage() {
   }
 
   useEffect(() => {
-    setOpenPriorityClass(null);
     if (openField) {
       const row = sortMenu.current?.querySelector(
         `[data-sort-trigger="${openField}"]`,
@@ -470,7 +458,7 @@ export default function RadarPage() {
             panel.offsetWidth,
             panel.offsetHeight,
             -10,
-            openField === "priority",
+            false,
           ),
         );
     }
@@ -705,7 +693,7 @@ export default function RadarPage() {
                         sort.field === option.key ? sort.direction : "none";
                       return (
                         <div
-                          className="ie-radar-sort-row"
+                          className={`ie-radar-sort-row${option.key === "company" ? " ie-radar-sort-after-status" : ""}`}
                           key={option.key}
                           role="none"
                           onMouseEnter={(event) => {
@@ -719,6 +707,7 @@ export default function RadarPage() {
                               clearTimer();
                               return;
                             }
+                            if (option.key === "status") { clearTimer(); setOpenField(null); return; }
                             openFlyout(option.key, event.currentTarget);
                           }}
                         >
@@ -728,26 +717,27 @@ export default function RadarPage() {
                             tabIndex={-1}
                             id={`sort-field-${option.key}`}
                             data-sort-trigger={option.key}
-                            aria-haspopup="menu"
+                            aria-haspopup={option.key === "status" ? undefined : "menu"}
                             aria-expanded={openField === option.key}
                             aria-controls={
                               openField === option.key
                                 ? `sort-options-${option.key}`
                                 : undefined
                             }
-                            data-active={openField === option.key}
+                            data-active={openField === option.key || (option.key === "status" && statusSections)}
                             onFocus={() => {
                               if (openField !== option.key) setOpenField(null);
                             }}
-                            onClick={(event) =>
-                              openFlyout(
-                                option.key,
-                                event.currentTarget.parentElement!,
-                                true,
-                              )
-                            }
+                            onClick={(event) => {
+                              if (option.key === "status") {
+                                setStatusSections(!statusSections);
+                                setSort({ field: statusSections ? "default" : "status", direction: "none" });
+                                closeSort(); sortTrigger.current?.focus(); return;
+                              }
+                              openFlyout(option.key, event.currentTarget.parentElement!, true);
+                            }}
                             onKeyDown={(event) => {
-                              if (event.key === "ArrowRight") {
+                              if (event.key === "ArrowRight" && option.key !== "status") {
                                 event.preventDefault();
                                 openFlyout(
                                   option.key,
@@ -757,20 +747,17 @@ export default function RadarPage() {
                               }
                             }}
                           >
-                            <span className={`ie-radar-sort-label${option.key === "priority" ? " ie-radar-priority-label" : ""}`}
-                              title={option.key === "priority" ? prioritySortLabel(sort.field === "priority" ? sort.subType : undefined, direction) : undefined}>
+                            <span className="ie-radar-sort-label">
                               {option.label}
                             </span>
                             <span className="ie-radar-sort-badge">
-                              {option.key === "priority" && sort.field === "priority" && sort.subType
-                                ? `${sort.subType}${sort.direction === "none" ? "" : `·${sortLabel("priority", sort.direction)}`}`
-                                : sortLabel(option.key, direction)}
+                              {option.key === "status" && statusSections ? String.fromCharCode(10003) : sortLabel(option.key, direction)}
                             </span>
                           </button>
                           {openField === option.key &&
                             createPortal(
                               <div
-                                className={`ie-radar-sort-flyout${option.key === "priority" ? " ie-radar-priority-flyout" : ""}`}
+                                className="ie-radar-sort-flyout"
                                 role="menu"
                                 ref={flyoutPanel}
                                 style={flyoutPosition}
@@ -779,51 +766,7 @@ export default function RadarPage() {
                                 id={`sort-options-${option.key}`}
                                 aria-labelledby={`sort-field-${option.key}`}
                               >
-                                {option.key === "priority" ? priorityClasses.map(category => (
-                                  <div key={category} className="ie-radar-priority-category">
-                                    <button type="button" role="menuitem" tabIndex={0}
-                                      aria-current={sort.field === "priority" && sort.subType === category ? "true" : undefined}
-                                      aria-haspopup="menu" aria-expanded={openPriorityClass === category}
-                                      onMouseEnter={event => {
-                                        clearTimer(); setOpenPriorityClass(category);
-                                        const row = event.currentTarget.parentElement!.getBoundingClientRect();
-                                        const coords = calculateFlyoutCoords(row, window.innerWidth, window.innerHeight, 220, 110, 4);
-                                        setDirectionPosition({ left: coords.left - row.left, top: coords.top - row.top });
-                                      }} onFocus={event => {
-                                        clearTimer(); setOpenPriorityClass(category);
-                                        const row = event.currentTarget.parentElement!.getBoundingClientRect();
-                                        const coords = calculateFlyoutCoords(row, window.innerWidth, window.innerHeight, 220, 110, 4);
-                                        setDirectionPosition({ left: coords.left - row.left, top: coords.top - row.top });
-                                      }} onClick={() => {
-                                        setSort({ field: "priority", direction: "none", subType: category });
-                                        closeSort(); sortTrigger.current?.focus();
-                                      }}
-                                      onKeyDown={event => {
-                                        if (event.key === "ArrowRight") {
-                                          event.preventDefault(); event.stopPropagation();
-                                          event.currentTarget.parentElement?.querySelector<HTMLButtonElement>('[role="menuitemradio"]')?.focus();
-                                        }
-                                      }}>{category}<span className="ie-radar-priority-selected" aria-hidden="true">
-                                        {sort.field === "priority" && sort.subType === category ? String.fromCharCode(10003) : ""}
-                                      </span></button>
-                                    {openPriorityClass === category && <div className="ie-radar-priority-directions" role="menu"
-                                      aria-label={`${category} score direction`} style={directionPosition}
-                                      onKeyDown={event => {
-                                        if (event.key === "ArrowLeft") {
-                                          event.preventDefault(); event.stopPropagation();
-                                          event.currentTarget.parentElement?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
-                                        }
-                                      }}>
-                                      {(["desc", "asc"] as const).map(order => <button key={order} type="button"
-                                        role="menuitemradio" tabIndex={0}
-                                        aria-checked={sort.field === "priority" && sort.subType === category && sort.direction === order}
-                                        onClick={() => {
-                                          setSort({ field: "priority", direction: order, subType: category });
-                                          closeSort(); sortTrigger.current?.focus();
-                                        }}>{order === "asc" ? "Low to High(Asceding)" : "High to Low(Desceding)"}</button>)}
-                                    </div>}
-                                  </div>
-                                )) : directionOptions(option.key).map((choice) => (
+                                {directionOptions(option.key).map((choice) => (
                                   <button
                                     type="button"
                                     key={choice.direction}
@@ -862,6 +805,7 @@ export default function RadarPage() {
                       }}
                       onFocus={() => setOpenField(null)}
                       onClick={() => {
+                        setStatusSections(false);
                         setSort({ field: "default", direction: "none" });
                         closeSort();
                         sortTrigger.current?.focus();
@@ -938,7 +882,11 @@ export default function RadarPage() {
                   </td>
                 </tr>
               )}
-              {filteredData.map((item) => (
+              {tableRows.map(({ item, section }) => section ? (
+                <tr key={`section-${section}`} className="ie-radar-section-row">
+                  <th colSpan={8} scope="rowgroup">{section}</th>
+                </tr>
+              ) : item && (
                 <tr key={`${item.ticker}-${item.public_event_day}`}>
                   <td>
                     <Link
