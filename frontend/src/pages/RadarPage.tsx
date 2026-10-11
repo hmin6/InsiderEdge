@@ -9,7 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
-import { Joyride, Step, TooltipRenderProps } from "react-joyride";
+import { Joyride, TooltipRenderProps } from "react-joyride";
 import { fetchRadar, usingResearchMocks } from "../api/client";
 import { useResource } from "../hooks/useResource";
 import { rankRadar, numeric } from "../components/ResearchStates";
