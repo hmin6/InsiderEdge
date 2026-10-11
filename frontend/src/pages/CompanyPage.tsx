@@ -1,7 +1,7 @@
 import { AIResearchAssistant } from "../components/AIResearchAssistant";
 import { useCallback, useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Joyride, Step, TooltipRenderProps } from "react-joyride";
+import { Joyride, TooltipRenderProps } from "react-joyride";
 import {
   fetchCompany,
   fetchPrices,
