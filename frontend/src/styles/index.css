@@ -933,9 +933,8 @@ h3 {
 }
 .ie-brief-header-spacer::before { content: 'P1 · Optional'; }
 .ie-ai-header-spacer::before { content: 'AI interpretation'; }
-.ie-ai-review-spacer { visibility: hidden; }
-.ie-ai-review-spacer::before {
-  content: 'For research review only. Compare the explanation with the quantitative evidence above.';
+.ie-ai-result:empty {
+  display: none;
 }
 
 .ie-radar-search-controls
