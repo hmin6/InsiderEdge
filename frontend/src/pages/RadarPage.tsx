@@ -13,6 +13,7 @@ import {
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { Joyride, TooltipRenderProps } from "react-joyride";
+const JoyrideComponent = Joyride as any;
 import { fetchRadar, usingResearchMocks } from "../api/client";
 import { useResource } from "../hooks/useResource";
 import { rankRadar } from "../components/ResearchStates";
@@ -128,8 +129,8 @@ const MascotTooltip = ({
 
 const tourSteps: any[] = [
   {
-    target: "body", 
-    placement: "center", 
+    target: "body",
+    placement: "center",
     content:
       "Welcome to the Company Research Profile! Let me show you how to read this institutional-grade quantitative research.",
     disableBeacon: true,
@@ -657,21 +658,19 @@ export default function RadarPage() {
       }
     >
       {isMounted && (
-        <Joyride
-          {...({
-            key: tourKey,
-            steps: tourSteps,
-            run: runTour,
-            continuous: true,
-            disableBeacon: true,
-            showSkipButton: true,
-            tooltipComponent: MascotTooltip,
-            callback: handleJoyrideCallback,
-            disableScrollParentFix: true,
-            styles: {
-              options: { zIndex: 10000, primaryColor: "var(--ie-primary)" },
-            },
-          } as any)}
+        <JoyrideComponent
+          key={tourKey}
+          steps={tourSteps}
+          run={runTour}
+          continuous={true}
+          disableBeacon={true}
+          showSkipButton={true}
+          tooltipComponent={MascotTooltip}
+          callback={handleJoyrideCallback}
+          disableScrollParentFix={true}
+          styles={{
+            options: { zIndex: 10000, primaryColor: "var(--ie-primary)" },
+          }}
         />
       )}
 

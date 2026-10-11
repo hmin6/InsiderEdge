@@ -3,6 +3,7 @@ import { AIResearchAssistant } from "../components/AIResearchAssistant";
 import { useCallback, useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Joyride, TooltipRenderProps } from "react-joyride";
+const JoyrideComponent = Joyride as any;
 import {
   fetchCompany,
   fetchPrices,
@@ -129,7 +130,7 @@ const MascotTooltip = ({
 
 const tourSteps: any[] = [
   {
-    target: "body",      
+    target: "body",
     placement: "center",
     content:
       "Welcome to the Company Research Profile! Let me show you how to read this institutional-grade quantitative research.",
@@ -168,6 +169,13 @@ const tourSteps: any[] = [
     placement: "left",
     content:
       "The Event Study compares this exact setup against historical comparables, proving the edge using p-values, bootstrap intervals, and Mean CAR30.",
+    disableBeacon: true,
+  },
+  {
+    target: ".ie-chart-region",
+    placement: "top",
+    content:
+      "The Historical Price & Events chart overlays SEC filings directly onto adjustment-aware price data. You can zoom in and pin specific dates to verify market reactions!",
     disableBeacon: true,
   },
   {
@@ -262,21 +270,19 @@ function CompanyResearch({ ticker }: { ticker: string }) {
   return (
     <AppShell navigation={[]}>
       {isMounted && (
-        <Joyride
-          {...({
-            key: tourKey,
-            steps: tourSteps,
-            run: runTour,
-            continuous: true,
-            disableBeacon: true,
-            showSkipButton: true,
-            tooltipComponent: MascotTooltip,
-            callback: handleJoyrideCallback,
-            disableScrollParentFix: true,
-            styles: {
-              options: { zIndex: 10000, primaryColor: "var(--ie-primary)" },
-            },
-          } as any)}
+        <JoyrideComponent
+          key={tourKey}
+          steps={tourSteps}
+          run={runTour}
+          continuous={true}
+          disableBeacon={true}
+          showSkipButton={true}
+          tooltipComponent={MascotTooltip}
+          callback={handleJoyrideCallback}
+          disableScrollParentFix={true}
+          styles={{
+            options: { zIndex: 10000, primaryColor: "var(--ie-primary)" },
+          }}
         />
       )}
 
