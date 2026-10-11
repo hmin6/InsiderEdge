@@ -33,6 +33,7 @@ function InspectionLayer({ prices, allPrices, readoutHost, onZoom, markedPoints,
   const pointerStart = useRef<number | null>(null);
   const moved = useRef(false);
   const [pinned, setPinned] = useState<PricePoint | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragging = useRef(false);
   useEffect(() => { setMarkedPoints([]); setPinned(null); dragging.current = false; setIsDragging(false); }, [allPrices]);
@@ -121,22 +122,37 @@ function InspectionLayer({ prices, allPrices, readoutHost, onZoom, markedPoints,
     {[...markedPoints.filter(mark => !isDragging || mark.date !== pinned?.date), ...(pinned ? [pinned] : [])]
       .filter((point, index, all) => all.findIndex(other => other.date === point.date) === index)
       .filter(point => points.some(visible => visible.date === point.date))
+      .sort((a, b) => Number(a.date === selectedDate) - Number(b.date === selectedDate))
       .map(point => {
         const x = Number(xScale(point.date));
         if (!Number.isFinite(x)) return null;
         const active = point.date === pinned?.date;
+        const selected = point.date === selectedDate;
         const y = Number(yScale(point.analysis_price));
         const saved = markedPoints.some(mark => mark.date === point.date);
         const labelX = Math.max(plot.x + Math.min(45, plot.width / 2), Math.min(x, plot.x + plot.width - Math.min(45, plot.width / 2)));
         return <g key={point.date} pointerEvents="none">
           {(saved || active) && <text x={labelX} y={plot.y - 25} textAnchor="middle"
-            fill="var(--ie-text)" fontSize={16}>
+            fill={selected ? '#f97316' : 'var(--ie-text)'} fontSize={16}
+            fontWeight={selected ? 700 : 400}
+            stroke={selected ? 'var(--ie-panel)' : undefined} strokeWidth={selected ? 4 : undefined}
+            paintOrder="stroke" pointerEvents={saved ? 'auto' : 'none'}
+            style={{ cursor: saved ? 'pointer' : undefined }}
+            role={saved ? 'button' : undefined} tabIndex={saved ? 0 : undefined}
+            aria-label={saved ? `Highlight guideline for ${point.date}, ${formatCurrency(point.analysis_price)}` : undefined}
+            aria-pressed={saved ? selected : undefined}
+            onClick={event => { event.stopPropagation(); setSelectedDate(point.date); }}
+            onKeyDown={event => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault(); event.stopPropagation(); setSelectedDate(point.date);
+              }
+            }}>
             <tspan x={labelX}>{formatCurrency(point.analysis_price)}</tspan>
-            <tspan x={labelX} dy={13} fill="var(--ie-muted)">{point.date}</tspan>
+            <tspan x={labelX} dy={13} fill={selected ? '#f97316' : 'var(--ie-muted)'}>{point.date}</tspan>
           </text>}
           <line x1={x} x2={x} y1={plot.y} y2={plot.y + plot.height}
-            stroke={active ? 'var(--ie-text)' : 'var(--ie-primary)'}
-            strokeWidth={active ? 2.5 : 2} strokeOpacity={active ? 1 : 0.9}
+            stroke={selected ? '#f97316' : active ? 'var(--ie-text)' : 'var(--ie-primary)'}
+            strokeWidth={selected ? 3.5 : active ? 2.5 : 2} strokeOpacity={selected || active ? 1 : 0.9}
             strokeDasharray={active ? undefined : '5 3'} />
           {active && Number.isFinite(y) && <circle cx={x} cy={y} r={4}
             fill="var(--ie-text)" stroke="var(--ie-workspace)" strokeWidth={2} />}
