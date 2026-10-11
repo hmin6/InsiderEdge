@@ -1,11 +1,7 @@
 import { AIResearchAssistant } from "../components/AIResearchAssistant";
 import { useCallback, useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import {
-  Joyride as ReactJoyride,
-  Step,
-  TooltipRenderProps,
-} from "react-joyride";
+import { Joyride, Step, TooltipRenderProps } from "react-joyride";
 import {
   fetchCompany,
   fetchPrices,
@@ -31,6 +27,39 @@ import {
 } from "../components";
 
 // --- START OF TOUR GUIDE IMPLEMENTATION ---
+const EdgeMascot = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 120 120"
+    style={{ width: "70px", height: "70px", flexShrink: 0 }}
+  >
+    <circle cx="60" cy="60" r="60" fill="#090e17" />
+    <circle
+      cx="60"
+      cy="60"
+      r="48"
+      fill="none"
+      stroke="#2a374f"
+      strokeWidth="2"
+      strokeDasharray="4 4"
+    />
+    <path
+      d="M60 12 A 48 48 0 0 1 108 60"
+      fill="none"
+      stroke="#3b82f6"
+      strokeWidth="4"
+      strokeLinecap="round"
+    />
+    <circle cx="60" cy="60" r="26" fill="#1e3a8a" />
+    <circle cx="60" cy="60" r="12" fill="#60a5fa" />
+    <path
+      d="M60 40 Q60 60 40 60 Q60 60 60 80 Q60 60 80 60 Q60 60 60 40 Z"
+      fill="#ffffff"
+      opacity="0.9"
+    />
+  </svg>
+);
+
 const MascotTooltip = ({
   index,
   step,
@@ -54,32 +83,19 @@ const MascotTooltip = ({
       boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
       border: "1px solid var(--ie-border)",
       backdropFilter: "blur(12px)",
+      zIndex: 10000,
     }}
   >
-    <div style={{ flexShrink: 0 }}>
-      <img
-        src="/gemini-svg.svg"
-        alt="Agent Mascot"
-        style={{
-          width: "70px",
-          height: "70px",
-          imageRendering: "pixelated",
-          borderRadius: "50%",
-        }}
-      />
-    </div>
+    <EdgeMascot />
     <div style={{ flexGrow: 1 }}>
       <div
-        style={{
-          fontSize: "15px",
-          marginBottom: "15px",
-          lineHeight: "1.5",
-        }}
+        style={{ fontSize: "15px", marginBottom: "15px", lineHeight: "1.5" }}
       >
         {step.content}
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
         <button
+          type="button"
           {...skipProps}
           className="ie-button"
           style={{
@@ -90,9 +106,9 @@ const MascotTooltip = ({
         >
           Skip
         </button>
-
         {index > 0 && (
           <button
+            type="button"
             {...backProps}
             className="ie-button"
             style={{ background: "transparent", border: "none" }}
@@ -100,7 +116,11 @@ const MascotTooltip = ({
             Back
           </button>
         )}
-        <button {...primaryProps} className="ie-button ie-button--primary">
+        <button
+          type="button"
+          {...primaryProps}
+          className="ie-button ie-button--primary"
+        >
           {isLastStep ? "Got it!" : "Next"}
         </button>
       </div>
@@ -113,43 +133,43 @@ const tourSteps: Step[] = [
     target: ".ie-product-header",
     placement: "bottom",
     content:
-      "Welcome to InsiderEdge! Let me show you how to read this institutional-grade quantitative research.",
+      "Welcome to the Company Research Profile! Let me show you how to read this institutional-grade quantitative research.",
   },
   {
     target: ".tour-score-panel",
+    placement: "bottom",
     content:
       "This is the overall InsiderEdge Score. It ranks the research priority of this event from 0-100 based on a blend of the components below.",
-    placement: "bottom",
   },
   {
     target: ".tour-activity-panel",
+    placement: "right",
     content:
       "Anomaly & Activity measures how unusual this insider buying is. We look at Mahalanobis distances and 30-day clustering to detect true conviction.",
-    placement: "right",
   },
   {
     target: ".tour-dislocation-panel",
+    placement: "right",
     content:
       "Market Dislocation evaluates if the stock is being bought into severe weakness or sector-wide drops, signaling a value setup.",
-    placement: "right",
   },
   {
     target: ".tour-prediction-panel",
+    placement: "left",
     content:
       "Our Machine Learning engine (XGBoost or Logistic Regression) predicts the exact probability that this stock will beat the benchmark over the next 30 days.",
-    placement: "left",
   },
   {
     target: ".tour-event-study-panel",
+    placement: "left",
     content:
       "The Event Study compares this exact setup against historical comparables, proving the edge using p-values, bootstrap intervals, and Mean CAR30.",
-    placement: "left",
   },
   {
     target: ".tour-ai-panel",
+    placement: "top",
     content:
       "Finally, our AI Research Assistant uses Gemini and Snowflake Cortex to contextualize the filings, and ElevenLabs to generate an audio analyst brief!",
-    placement: "top",
   },
 ];
 // --- END OF TOUR GUIDE IMPLEMENTATION ---
@@ -230,7 +250,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
   return (
     <AppShell navigation={[]}>
       {/* @ts-ignore - Bypass strict joyride v3 type mismatches */}
-      <ReactJoyride
+      <Joyride
         {...({
           key: tourKey,
           steps: tourSteps,
@@ -239,9 +259,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
           tooltipComponent: MascotTooltip,
           beaconComponent: () => null,
           callback: handleJoyrideCallback,
-          styles: {
-            overlay: { zIndex: 10000 },
-          },
+          styles: { overlay: { zIndex: 10000 } }
         } as any)}
       />
 

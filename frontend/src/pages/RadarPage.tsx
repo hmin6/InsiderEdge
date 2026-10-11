@@ -9,11 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  Joyride as ReactJoyride,
-  Step,
-  TooltipRenderProps,
-} from "react-joyride";
+import { Joyride, Step, TooltipRenderProps } from "react-joyride";
 import { fetchRadar, usingResearchMocks } from "../api/client";
 import { useResource } from "../hooks/useResource";
 import { rankRadar, numeric } from "../components/ResearchStates";
@@ -27,6 +23,39 @@ import {
 } from "../components";
 
 // --- START OF TOUR GUIDE IMPLEMENTATION ---
+const EdgeMascot = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 120 120"
+    style={{ width: "70px", height: "70px", flexShrink: 0 }}
+  >
+    <circle cx="60" cy="60" r="60" fill="#090e17" />
+    <circle
+      cx="60"
+      cy="60"
+      r="48"
+      fill="none"
+      stroke="#2a374f"
+      strokeWidth="2"
+      strokeDasharray="4 4"
+    />
+    <path
+      d="M60 12 A 48 48 0 0 1 108 60"
+      fill="none"
+      stroke="#3b82f6"
+      strokeWidth="4"
+      strokeLinecap="round"
+    />
+    <circle cx="60" cy="60" r="26" fill="#1e3a8a" />
+    <circle cx="60" cy="60" r="12" fill="#60a5fa" />
+    <path
+      d="M60 40 Q60 60 40 60 Q60 60 60 80 Q60 60 80 60 Q60 60 60 40 Z"
+      fill="#ffffff"
+      opacity="0.9"
+    />
+  </svg>
+);
+
 const MascotTooltip = ({
   index,
   step,
@@ -50,16 +79,10 @@ const MascotTooltip = ({
       boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
       border: "1px solid var(--ie-border)",
       backdropFilter: "blur(12px)",
+      zIndex: 10000,
     }}
   >
-    <div style={{ flexShrink: 0 }}>
-      {/* Fixed image path to match your actual file name! */}
-      <img
-        src="/gemini-svg.svg"
-        alt="Agent Mascot"
-        style={{ width: "70px", height: "70px" }}
-      />
-    </div>
+    <EdgeMascot />
     <div style={{ flexGrow: 1 }}>
       <div
         style={{ fontSize: "15px", marginBottom: "15px", lineHeight: "1.5" }}
@@ -68,6 +91,7 @@ const MascotTooltip = ({
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
         <button
+          type="button"
           {...skipProps}
           className="ie-button"
           style={{
@@ -80,6 +104,7 @@ const MascotTooltip = ({
         </button>
         {index > 0 && (
           <button
+            type="button"
             {...backProps}
             className="ie-button"
             style={{ background: "transparent", border: "none" }}
@@ -87,7 +112,11 @@ const MascotTooltip = ({
             Back
           </button>
         )}
-        <button {...primaryProps} className="ie-button ie-button--primary">
+        <button
+          type="button"
+          {...primaryProps}
+          className="ie-button ie-button--primary"
+        >
           {isLastStep ? "Got it!" : "Next"}
         </button>
       </div>
@@ -100,31 +129,31 @@ const tourSteps: Step[] = [
     target: ".ie-radar-header-bar",
     placement: "bottom",
     content:
-      "Welcome to InsiderEdge! This platform provides institutional-grade quantitative equity research. We detect anomalous insider trading clusters, analyze market dislocations, and use Machine Learning to predict benchmark outperformance.",
+      "Welcome to our Hackathon Project: InsiderEdge! This platform identifies institutional-grade quantitative equity research by detecting anomalous insider trading clusters.",
   },
   {
     target: ".ie-radar-table",
-    content:
-      "This is the research queue. It constantly scans the market for significant insider trading events and ranks them by their statistical edge.",
     placement: "top",
+    content:
+      "Here is our Market Radar queue. It constantly scans recent SEC Form 4 filings and ranks them based on Mahalanobis distance, clustered buying, and XGBoost machine learning predictions.",
   },
   {
     target: ".ie-radar-sort",
-    content:
-      "You can sort the queue by different quantitative components, like Market Dislocation or Anomaly scores.",
     placement: "bottom",
+    content:
+      "You can sort the generated signals by different quantitative components. Try sorting by 'Anomaly' or 'Market Dislocation'!",
   },
   {
     target: ".ie-radar-quick-search",
-    content:
-      "Looking for a specific stock? Search for any ticker here to pull up its full institutional research profile.",
     placement: "bottom",
+    content:
+      "If you want to evaluate a specific stock, type its ticker here. We normalize the SEC data and calculate the event study on the fly.",
   },
   {
     target: ".ie-radar-table tbody tr:first-child",
-    content:
-      "Click on any company in this list to dive into the deep quantitative metrics, ML predictions, and AI explanations for that event!",
     placement: "bottom",
+    content:
+      "Click on any company row here to dive into the deep quantitative metrics, our ML evaluation, and the Gemini AI explanation for this exact event!",
   },
 ];
 // --- END OF TOUR GUIDE IMPLEMENTATION ---
@@ -534,7 +563,7 @@ export default function RadarPage() {
       }
     >
       {/* @ts-ignore - Bypass strict joyride v3 type mismatches */}
-      <ReactJoyride
+      <Joyride
         {...({
           key: tourKey,
           steps: tourSteps,
@@ -543,9 +572,7 @@ export default function RadarPage() {
           tooltipComponent: MascotTooltip,
           beaconComponent: () => null,
           callback: handleJoyrideCallback,
-          styles: {
-            overlay: { zIndex: 10000 },
-          },
+          styles: { overlay: { zIndex: 10000 } }
         } as any)}
       />
 
