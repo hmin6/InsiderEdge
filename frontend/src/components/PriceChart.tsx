@@ -179,7 +179,17 @@ function InspectionLayer({ prices, allPrices, readoutHost, onZoom, markedPoints,
   </g>;
 }
 
-export function PriceChart({ prices, transactions }: PriceChartProps) {
+export function uniqueChartDates<T extends { date: string }>(points: T[]): T[] {
+  const seen = new Set<string>();
+  return points.filter(point => {
+    if (seen.has(point.date)) return false;
+    seen.add(point.date);
+    return true;
+  });
+}
+
+export function PriceChart({ prices: rawPrices, transactions }: PriceChartProps) {
+  const prices = useMemo(() => uniqueChartDates(rawPrices), [rawPrices]);
   const [markedPoints, setMarkedPoints] = useState<PricePoint[]>([]);
   const gradientId = `price-direction-${useId().replace(/:/g, '')}`;
   const [zoomRange, setZoomRange] = useState<{ start: number; end: number } | null>(null);
@@ -224,7 +234,8 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
           t.chartPrice !== null &&
           Number.isFinite(t.chartPrice) &&
           t.chartPrice > 0,
-      );
+      )
+      .filter((marker, index, all) => all.findIndex(other => other.filing_date === marker.filing_date) === index);
   }, [prices, transactions]);
 
   if (!prices.length) {
@@ -286,14 +297,14 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
             stroke={`url(#${gradientId})`}
             strokeWidth={2}
             dot={false}
-            activeDot={<PriceHoverMarker />}
+            activeDot={false}
             animationDuration={300}
             isAnimationActive={!reducedMotion}
           />
 
-          {markers.filter(marker => visiblePrices.some(point => point.date === marker.filing_date)).map((marker, idx) => (
+          {markers.filter(marker => visiblePrices.some(point => point.date === marker.filing_date)).map(marker => (
             <ReferenceDot
-              key={`${marker.transaction_id}-${idx}`}
+              key={marker.filing_date}
               x={marker.filing_date}
               y={marker.chartPrice}
               r={6}
