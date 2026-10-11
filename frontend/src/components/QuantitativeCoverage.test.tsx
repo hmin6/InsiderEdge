@@ -28,7 +28,7 @@ test('Radar removes summary column only, preserves canonical sorting and detail 
   const radar = readFileSync(new URL('../pages/RadarPage.tsx', import.meta.url), 'utf8');
   assert.doesNotMatch(radar, /<th>Signal Summary<\/th>|item.insider_signal_summary/);
   for (const label of ['Company', 'Status', 'Anomaly', 'Activity', 'Dislocation', 'Model probability', 'Research priority score']) assert.ok(radar.includes(label));
-  assert.match(radar, /colSpan=\{7\}/);
+  assert.match(radar, /colSpan=\{8\}/);
   assert.doesNotMatch(radar, /partial_index/);
   const company = readFileSync(new URL('../pages/CompanyPage.tsx', import.meta.url), 'utf8');
   assert.match(company, /insider_signal_summary/);

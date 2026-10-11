@@ -12,6 +12,7 @@ export type RadarSortKey =
   | "company"
   | "status"
   | "anomaly"
+  | "statistical"
   | "activity"
   | "dislocation"
   | "model_prob"
@@ -38,6 +39,7 @@ export function rankRadar(
   const fields = {
     anomaly: "anomaly_score",
     activity: "activity_score",
+    statistical: "statistical_score",
     dislocation: "dislocation_score",
     model_prob: "ml_outperformance_probability",
     priority: "insider_edge_score",

@@ -6,7 +6,7 @@ export const NOT_SCORED_EXPLANATION = 'No persisted Signal is available for this
 /** Missing Signals are distinct from evaluated failures. Legacy responses do not
  * establish persistence, so do not claim the scoring process ran without the field.
  */
-export function SignalAvailability({ evidence, showBadge = true }: { evidence: ScoreEvidence; showBadge?: boolean }) {
+export function SignalAvailability({ evidence, showBadge = true, compact = false }: { evidence: ScoreEvidence; showBadge?: boolean; compact?: boolean }) {
   const status = evidence.availability_status;
   const descriptions = {
     not_scored: NOT_SCORED_EXPLANATION,
@@ -16,8 +16,8 @@ export function SignalAvailability({ evidence, showBadge = true }: { evidence: S
   };
   return <div>
     {showBadge && <ScoreStatusBadge status={evidence.score_status} availability={status} />}
-    {status && <p className="ie-muted">{descriptions[status]}</p>}
-    {status !== 'not_scored' && !!evidence.unavailable_components?.length &&
+    {!compact && status && <p className="ie-muted">{descriptions[status]}</p>}
+    {!compact && status !== 'not_scored' && !!evidence.unavailable_components?.length &&
       <p className="ie-muted">Unavailable components: {evidence.unavailable_components.join(', ')}</p>}
   </div>;
 }
