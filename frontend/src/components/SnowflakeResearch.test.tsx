@@ -5,8 +5,8 @@ import { SnowflakeResearch, requestSnowflake } from './SnowflakeResearch';
 const unavailable = { ticker: 'AXP', provider: 'snowflake', status: 'unavailable', context: null, limitations: [] };
 test('Snowflake is on demand and separate from scoring', () => {
   const html = renderToStaticMarkup(<SnowflakeResearch ticker="AXP" />);
-  assert.match(html, /Snowflake Research Context/);
-  assert.match(html, /No influence on scoring/);
+  assert.match(html, /Research Context/);
+  assert.match(html, /Powered by Snowflake Cortex/);
   assert.match(html, /Generate research context/);
 });
 test('request uses backend POST and accepts unavailable without crashing', async () => {

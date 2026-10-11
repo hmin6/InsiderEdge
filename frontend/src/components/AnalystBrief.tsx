@@ -65,9 +65,8 @@ function BriefRequest({ ticker }: { ticker: string }) {
       await audio.current.play();
     } catch { setPlayError(true); }
   }
-  return <Panel title="Analyst Brief · ElevenLabs" description="Optional audio interpretation of existing research evidence." actions={<span className="ie-brief-header-spacer" aria-hidden="true" />}>
+  return <Panel title="Listen to Brief" description="Powered by ElevenLabs - Optional audio briefing with a readable transcript." actions={<span className="ie-brief-header-spacer" aria-hidden="true" />}>
     <div className="ie-stack">
-      <p className="ie-muted">Research context only. Generating audio does not change the signal, score, or model prediction.</p>
       <div><button className="ie-button" onClick={generate} disabled={state === 'pending' || state === 'success'}>{state === 'pending' ? 'Generating analyst brief…' : state === 'success' ? 'Brief generated' : state === 'error' ? 'Retry Generate Analyst Brief' : 'Generate Analyst Brief'}</button></div>
       {state === 'pending' && <PanelSkeleton label="Generating optional analyst brief" rows={3} />}
       {state === 'error' && <StateMessage kind="error" title="Analyst brief unavailable">Please retry. Gemini and quantitative results are unaffected.</StateMessage>}
