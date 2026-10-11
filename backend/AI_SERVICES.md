@@ -134,6 +134,57 @@ Missing key/voice, timeout, invalid audio or any provider failure returns HTTP 2
 with the same transcript, NULL audio fields and status `audio_unavailable`.
 Nothing is persisted by either endpoint. No rate limiter/auth system is added.
 
+## Unified research document and voice (Issue #118)
+
+The company page has one **AI Research Assistant**: **Generate AI Research**,
+one combined **Research Summary** document, and **Listen to Research** with
+ElevenLabs voice attribution. There are no provider tabs or independent analyst
+brief in this workflow. Existing standalone provider components and the legacy
+no-body `/brief` endpoint retain their original behavior.
+
+Generate starts Snowflake and Gemini independently and concurrently using their
+existing request helpers and validation. One progress area reports each provider.
+Once both settle, successful responses become ordered document sections without
+another model, numerical calculation, rewriting or truncation. Both-provider
+failure produces no document. Partial success retains the available sections and
+explicitly identifies the unavailable provider capability. The result includes
+source attribution and a shared research-only / not-investment-advice disclaimer.
+
+Explicitly generating again starts both providers anew, clears the previous
+document, stops old audio and aborts outstanding speech requests. Company/event
+changes also clear everything and abort outstanding requests. Rendering never
+triggers generation. Double clicks during generation do not duplicate calls.
+
+`POST /research-audio` receives bounded structured provider results and the exact
+displayed document, tied to `research_event_id`. Generation routes retain only
+hashes of validated outputs and their exact persisted evidence: 512 entries,
+20-minute lifetime, per-worker memory. Before speech, the server freshly assembles
+evidence, verifies every supplied output, reconstructs the document and compares
+all fields. It rejects altered/arbitrary/expired/unverified research (403), stale
+company/event mappings (409), malformed/extra fields (422), and scripts over
+10,000 characters (413), before calling ElevenLabs. No raw prose/evidence is
+cached or logged. No database writes or provider grounding changes are involved.
+
+Speech reads every displayed research section, attribution, missing-provider
+notice and disclaimer in order, with only an introductory company sentence.
+There is no independent summary, extra analysis, market lookup or analytical
+provider call. The frontend also verifies the returned transcript against its
+own deterministic script before playing audio. Audio failure never removes the
+research document; successful audio retains player controls and replay behavior.
+The original `/brief` template and response remain unchanged for older consumers.
+
+Verification is deliberately fail-closed. Expiration, eviction, a worker restart,
+routing to a different worker, or changed persisted evidence requires regeneration;
+it never silently substitutes another transcript. Multi-worker hosting would
+benefit from a shared verification cache in a separate change. Audio requires a
+persisted research event. Existing development Gemini mocks remain visibly marked
+and cannot pass server verification for real speech.
+
+A shared synthetic golden fixture is checked by Python and TypeScript to keep
+document ordering and speech text identical:
+`backend/tests/fixtures/ai/research_document.json`.
+Mocked coverage: `..\.venv\Scripts\python -m pytest -q tests/test_research_document.py`.
+
 ## Mocked tests and optional live checks
 
 ```powershell

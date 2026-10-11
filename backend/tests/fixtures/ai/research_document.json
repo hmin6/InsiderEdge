@@ -1,0 +1,81 @@
+{
+  "snowflake_context": {
+    "event_context": [
+      "The persisted event includes a purchase disclosure."
+    ],
+    "filing_context": [
+      "The filing was public on 2026-10-01."
+    ],
+    "research_considerations": [
+      "Review the disclosed filing context."
+    ]
+  },
+  "gemini_explanation": {
+    "ticker": "AAPL",
+    "why_flagged": [
+      "A persisted research event is available."
+    ],
+    "supportive_evidence": [
+      "The recorded purchase value is available."
+    ],
+    "risk_evidence": [
+      "Buyer identity is uncertain."
+    ],
+    "uncertainty": [
+      "Future outcomes are unknown."
+    ],
+    "limitations": [
+      "Research only; not investment advice."
+    ]
+  },
+  "document": {
+    "title": "Research Summary",
+    "sections": [
+      {
+        "title": "Event & Filing Context",
+        "items": [
+          "The persisted event includes a purchase disclosure.",
+          "The filing was public on 2026-10-01."
+        ]
+      },
+      {
+        "title": "Signal Interpretation",
+        "items": [
+          "A persisted research event is available."
+        ]
+      },
+      {
+        "title": "Supporting Evidence",
+        "items": [
+          "The recorded purchase value is available."
+        ]
+      },
+      {
+        "title": "Risks / Counter-Evidence",
+        "items": [
+          "Buyer identity is uncertain."
+        ]
+      },
+      {
+        "title": "Uncertainty & Limitations",
+        "items": [
+          "Future outcomes are unknown.",
+          "Research only; not investment advice."
+        ]
+      },
+      {
+        "title": "Research Considerations",
+        "items": [
+          "Review the disclosed filing context."
+        ]
+      }
+    ],
+    "sources": [
+      "Snowflake Cortex - event and filing context",
+      "Gemini - quantitative signal interpretation"
+    ],
+    "unavailable": [],
+    "disclaimer": "AI tools interpret existing evidence. They do not calculate or modify InsiderEdge scores or predictions. Research only; not investment advice."
+  },
+  "script": "InsiderEdge research for AAPL.\nResearch Summary\nEvent & Filing Context\nThe persisted event includes a purchase disclosure.\nThe filing was public on 2026-10-01.\nSignal Interpretation\nA persisted research event is available.\nSupporting Evidence\nThe recorded purchase value is available.\nRisks / Counter-Evidence\nBuyer identity is uncertain.\nUncertainty & Limitations\nFuture outcomes are unknown.\nResearch only; not investment advice.\nResearch Considerations\nReview the disclosed filing context.\nResearch generated from:\nSnowflake Cortex - event and filing context\nGemini - quantitative signal interpretation\nAI tools interpret existing evidence. They do not calculate or modify InsiderEdge scores or predictions. Research only; not investment advice."
+}

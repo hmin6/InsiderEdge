@@ -16,4 +16,9 @@ def get_context(company=Depends(known_company), session=Depends(get_session)):
 
 @router.post('/{ticker}/snowflake-research', response_model=snowflake_research.ResearchResponse)
 def research(context=Depends(get_context), provider=Depends(get_provider)):
-    return snowflake_research.research(context, provider)
+    result = snowflake_research.research(context, provider)
+    if result.status == 'available':
+        # Import here avoids coupling provider validation to research speech verification.
+        from app.services.research_document import validated_research
+        validated_research.remember('snowflake', context, result.context.model_dump())
+    return result

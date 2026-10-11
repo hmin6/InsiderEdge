@@ -3,182 +3,223 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { AIResearchAssistant } from './AIResearchAssistant';
+import { combineResearch, researchScript, type ResearchAudioRequest } from '../api/researchDocument';
 
-const labels = ['Research Context', 'Signal Explanation', 'Listen to Brief'];
-const endpoints = ['snowflake-research', 'explain', 'brief'];
-const generated = ['Persisted filing context.', 'Grounded signal explanation.', 'Deterministic analyst transcript.'];
-
-function response(endpoint: string, ticker: string) {
-  if (endpoint === endpoints[0]) return Response.json({ ticker, provider: 'snowflake', status: 'available',
-    research_event_id: `${ticker}:2026-03-16`, limitations: [], context: {
-      event_context: [generated[0]], research_considerations: ['Review uncertainty.'], filing_context: ['Public filing.'],
-    } });
-  if (endpoint === endpoints[1]) return Response.json({ ticker, why_flagged: [generated[1]],
-    supportive_evidence: [], risk_evidence: [], uncertainty: ['Unknown outcomes.'], limitations: ['Research only.'] });
-  return Response.json({ ticker, transcript: generated[2], status: 'ok', audio_base64: 'AA==', audio_mime_type: 'audio/mpeg' });
+const fixture = JSON.parse(readFileSync(new URL('../../../backend/tests/fixtures/ai/research_document.json', import.meta.url), 'utf8'));
+type Call = { url: string; init?: RequestInit };
+const endpoint = (url: string) => url.split('/').pop()!;
+function response(url: string, init?: RequestInit) {
+  if (endpoint(url) === 'snowflake-research') return Response.json({ ticker: 'AAPL', provider: 'snowflake',
+    status: 'available', research_event_id: 'AAPL:2026-10-02', limitations: [], context: fixture.snowflake_context });
+  if (endpoint(url) === 'explain') return Response.json(fixture.gemini_explanation);
+  const request = JSON.parse(String(init?.body)) as ResearchAudioRequest;
+  return Response.json({ ticker: 'AAPL', transcript: researchScript('AAPL', request.document),
+    status: 'ok', audio_base64: 'AA==', audio_mime_type: 'audio/mpeg' });
 }
-
-async function harness(run: (view: ReactTestRenderer, calls: string[], revoked: string[]) => Promise<void>,
-  fetcher?: typeof fetch) {
-  const originalFetch = globalThis.fetch;
-  const originalWindow = globalThis.window;
-  const originalCreate = URL.createObjectURL;
-  const originalRevoke = URL.revokeObjectURL;
-  const calls: string[] = [], revoked: string[] = [];
+async function harness(run: (view: ReactTestRenderer, calls: Call[], revoked: string[]) => Promise<void>, fetcher?: typeof fetch) {
+  const original = { fetch: globalThis.fetch, window: globalThis.window, create: URL.createObjectURL, revoke: URL.revokeObjectURL };
+  const calls: Call[] = [], revoked: string[] = [];
   let view: ReactTestRenderer | undefined;
   globalThis.window = { setTimeout, clearTimeout } as unknown as Window & typeof globalThis;
-  URL.createObjectURL = () => 'blob:mock-brief';
-  URL.revokeObjectURL = value => { revoked.push(value); };
+  URL.createObjectURL = () => 'blob:research';
+  URL.revokeObjectURL = url => { revoked.push(url); };
   globalThis.fetch = async (url, init) => {
-    calls.push(String(url));
-    if (fetcher) return fetcher(url, init);
-    const parts = String(url).split('/');
-    return response(parts[parts.length - 1], decodeURIComponent(parts[parts.length - 2]));
+    calls.push({ url: String(url), init });
+    return fetcher ? fetcher(url, init) : response(String(url), init);
   };
   try {
-    act(() => { view = create(<AIResearchAssistant ticker="AXP" evidenceKey="2026-03-16" />); });
+    act(() => { view = create(<AIResearchAssistant ticker="AAPL" evidenceKey="2026-10-02" />); });
     await run(view!, calls, revoked);
   } finally {
     if (view) act(() => view!.unmount());
-    globalThis.fetch = originalFetch;
-    globalThis.window = originalWindow;
-    URL.createObjectURL = originalCreate;
-    URL.revokeObjectURL = originalRevoke;
+    globalThis.fetch = original.fetch; globalThis.window = original.window;
+    URL.createObjectURL = original.create; URL.revokeObjectURL = original.revoke;
   }
 }
+const content = (view: ReactTestRenderer) => JSON.stringify(view.toJSON());
+function button(view: ReactTestRenderer, label: string) {
+  return view.root.findAllByType('button').find(node => node.children.join('') === label)!;
+}
+async function click(view: ReactTestRenderer, label: string) {
+  assert.ok(button(view, label), label);
+  await act(async () => { button(view, label).props.onClick(); await new Promise(resolve => setTimeout(resolve, 0)); });
+}
+const summaries = (view: ReactTestRenderer) => view.root.findAllByType('h2').filter(node => node.children.join('') === 'Research Summary');
 
-function select(view: ReactTestRenderer, index: number) {
-  act(() => view.root.findAllByProps({ role: 'tab' })[index].props.onClick());
-}
-function assertActive(view: ReactTestRenderer, index: number) {
-  const tabs = view.root.findAllByProps({ role: 'tab' });
-  const panels = view.root.findAllByProps({ role: 'tabpanel' });
-  assert.equal(panels.length, 3); // Every provider stays mounted.
-  panels.forEach((panel, i) => {
-    assert.equal(panel.props.hidden, i !== index);
-    assert.equal(tabs[i].props['aria-selected'], i === index);
-    assert.equal(tabs[i].props.tabIndex, i === index ? 0 : -1);
-    assert.equal(tabs[i].props['aria-controls'], panel.props.id);
-    assert.equal(panel.props['aria-labelledby'], tabs[i].props.id);
-  });
-}
-async function generate(view: ReactTestRenderer, index: number) {
-  select(view, index);
-  const panel = view.root.findAllByProps({ role: 'tabpanel' })[index];
-  const button = panel.findAllByType('button').find(node => node.props.onClick);
-  assert.ok(button);
-  await act(async () => { await button.props.onClick(); });
-}
 
-test('three attributed tabs share one disclaimer and only context starts visible', async () => {
+test('one assistant action, no tabs, no independent analyst brief, and no automatic requests', async () => {
   await harness(async (view, calls) => {
-    const text = JSON.stringify(view.toJSON());
-    labels.forEach(label => assert.ok(text.includes(label)));
-    ['Snowflake Cortex', 'Gemini', 'ElevenLabs'].forEach(provider => assert.ok(text.includes(`Powered by ${provider}`)));
-    assert.equal(text.split('They do not calculate or modify InsiderEdge scores or predictions.').length - 1, 1);
-    assertActive(view, 0);
+    assert.ok(button(view, 'Generate AI Research'));
+    assert.equal(view.root.findAllByProps({ role: 'tab' }).length, 0);
+    assert.equal(view.root.findAllByProps({ role: 'tabpanel' }).length, 0);
+    assert.equal(button(view, 'Listen to Research'), undefined);
+    assert.ok(content(view).includes('AI tools interpret existing evidence.'));
+    assert.ok(!content(view).includes('Listen to Brief'));
+    assert.ok(!content(view).includes('Explain Signal'));
     assert.equal(calls.length, 0);
   });
 });
 
-test('switching tabs preserves all generated output, mounted instances and audio without requests', async () => {
-  await harness(async (view, calls, revoked) => {
-    for (let i = 0; i < 3; i++) { select(view, i); assertActive(view, i); }
-    assert.equal(calls.length, 0);
-    for (let i = 0; i < 3; i++) await generate(view, i);
-    assert.equal(calls.length, 3);
-    const audio = view.root.findByType('audio');
-    for (const index of [0, 2, 1, 0, 2]) {
-      select(view, index);
-      assertActive(view, index);
-      generated.forEach(text => assert.ok(JSON.stringify(view.toJSON()).includes(text)));
-      assert.equal(view.root.findByType('audio'), audio);
-      assert.equal(audio.props.src, 'blob:mock-brief');
+test('both requests are concurrently in flight; duplicate clicks/rendering never duplicate calls', async () => {
+  const resolve: Record<string, (value: Response) => void> = {};
+  await harness(async (view, calls) => {
+    const generate = button(view, 'Generate AI Research');
+    act(() => { generate.props.onClick(); generate.props.onClick(); });
+    assert.deepEqual(calls.map(call => endpoint(call.url)), ['snowflake-research', 'explain']);
+    assert.ok(button(view, 'Generating AI Research...').props.disabled);
+    assert.ok(content(view).includes('Generating...'));
+    await act(async () => { resolve.explain(response('/explain')); });
+    assert.ok(content(view).includes('Ready'));
+    assert.equal(summaries(view).length, 0);
+    await act(async () => { resolve['snowflake-research'](response('/snowflake-research')); });
+    assert.equal(summaries(view).length, 1);
+    act(() => view.update(<AIResearchAssistant ticker="AAPL" evidenceKey="2026-10-02" />));
+    assert.equal(calls.length, 2);
+  }, url => new Promise<Response>(done => { resolve[endpoint(String(url))] = done; }));
+});
+
+test('both providers produce one deterministic, attributed document without rewriting', async () => {
+  assert.deepEqual(combineResearch(fixture.snowflake_context, fixture.gemini_explanation), fixture.document);
+  assert.equal(researchScript('AAPL', fixture.document), fixture.script);
+  await harness(async (view, calls) => {
+    await click(view, 'Generate AI Research');
+    assert.equal(summaries(view).length, 1);
+    const text = content(view);
+    for (const section of fixture.document.sections) {
+      assert.ok(text.includes(section.title));
+      for (const item of section.items) assert.ok(text.includes(item));
     }
-    assert.equal(revoked.length, 0);
-    assert.equal(calls.length, 3);
+    fixture.document.sources.forEach((source: string) => assert.ok(text.includes(source)));
+    assert.equal(text.split(fixture.document.disclaimer).length - 1, 1);
+    assert.ok(button(view, 'Listen to Research'));
+    assert.ok(text.includes('Voice powered by ElevenLabs'));
+    assert.equal(calls.length, 2);
   });
 });
 
-for (const change of ['event', 'company']) {
-  test(`${change} change resets generated content, tab selection and audio state`, async () => {
-    await harness(async (view, calls, revoked) => {
-      for (let i = 0; i < 3; i++) await generate(view, i);
-      act(() => view.update(<AIResearchAssistant ticker={change === 'company' ? 'BRK.B' : 'AXP'}
-        evidenceKey={change === 'event' ? '2026-03-17' : '2026-03-16'} />));
-      assertActive(view, 0);
-      generated.forEach(text => assert.ok(!JSON.stringify(view.toJSON()).includes(text)));
-      assert.equal(view.root.findAllByType('audio').length, 0);
-      assert.deepEqual(revoked, ['blob:mock-brief']);
-      assert.equal(calls.length, 3);
-    });
-  });
-}
-
-for (let failed = 0; failed < 3; failed++) {
-  test(`${labels[failed]} failure stays isolated to its tab`, async () => {
+for (const failed of ['snowflake-research', 'explain', 'both']) {
+  test(`${failed} failure: partial research is honest; both failures fabricate no document`, async () => {
     await harness(async (view, calls) => {
-      for (let i = 0; i < 3; i++) await generate(view, i);
-      for (let i = 0; i < 3; i++) {
-        select(view, i);
-        assertActive(view, i);
-        const panel = view.root.findAllByProps({ role: 'tabpanel' })[i];
-        if (i !== failed) assert.ok(JSON.stringify(view.toJSON()).includes(generated[i]));
-        else {
-          const titles = panel.findAllByType('h3').map(node => node.children.join(' '));
-          assert.ok(titles.includes(['Snowflake research context unavailable',
-            'AI explanation unavailable', 'Analyst brief unavailable'][failed]));
-        }
+      await click(view, 'Generate AI Research');
+      if (failed === 'both') {
+        assert.equal(summaries(view).length, 0);
+        assert.ok(content(view).includes('AI research unavailable'));
+        assert.equal(button(view, 'Listen to Research'), undefined);
+      } else {
+        assert.equal(summaries(view).length, 1);
+        assert.ok(content(view).includes(failed === 'explain' ? 'Quantitative AI interpretation was unavailable.' : 'Qualitative research context was unavailable.'));
+        const headings = view.root.findAllByType('h3').map(node => node.children.join(''));
+        assert.equal(headings.includes('Signal Interpretation'), failed !== 'explain');
+        assert.equal(headings.includes('Event & Filing Context'), failed !== 'snowflake-research');
+        await click(view, 'Listen to Research');
+        const body = JSON.parse(String(calls[2].init?.body));
+        assert.equal(Boolean(body.snowflake_context), failed !== 'snowflake-research');
+        assert.equal(Boolean(body.gemini_explanation), failed !== 'explain');
       }
-      assert.ok(JSON.stringify(view.toJSON()).includes('unavailable'));
-      assert.ok(!JSON.stringify(view.toJSON()).includes('private provider detail'));
+      assert.ok(!content(view).includes('private provider failure'));
+    }, async (url, init) => failed === 'both' || endpoint(String(url)) === failed
+      ? new Response('private provider failure', { status: 503 }) : response(String(url), init));
+  });
+}
+
+test('Listen to Research sends the displayed document and replays audio without analytical requests', async () => {
+  await harness(async (view, calls) => {
+    await click(view, 'Generate AI Research'); await click(view, 'Listen to Research');
+    const sent = JSON.parse(String(calls[2].init?.body));
+    assert.equal(endpoint(calls[2].url), 'research-audio');
+    assert.deepEqual(sent.document, fixture.document);
+    assert.deepEqual(sent.snowflake_context, fixture.snowflake_context);
+    assert.deepEqual(sent.gemini_explanation, fixture.gemini_explanation);
+    assert.equal(sent.research_event_id, 'AAPL:2026-10-02');
+    assert.equal((calls[2].init?.headers as Record<string, string>)['Content-Type'], 'application/json');
+    assert.equal(view.root.findByType('audio').props.src, 'blob:research');
+    await click(view, 'Replay from start');
+    assert.equal(calls.length, 3);
+    assert.equal(summaries(view).length, 1);
+  });
+});
+
+for (const failure of ['http', 'audio_unavailable', 'mismatched_transcript']) {
+  test(`ElevenLabs ${failure} keeps the complete research document`, async () => {
+    await harness(async (view, calls) => {
+      await click(view, 'Generate AI Research'); await click(view, 'Listen to Research');
+      assert.equal(summaries(view).length, 1);
+      fixture.document.sections.forEach((section: { items: string[] }) => section.items.forEach(text => assert.ok(content(view).includes(text))));
+      assert.equal(view.root.findAllByType('audio').length, 0);
+      assert.ok(content(view).includes('unavailable'));
       assert.equal(calls.length, 3);
-    }, async url => {
-      const parts = String(url).split('/');
-      return parts[parts.length - 1] === endpoints[failed]
-        ? new Response('private provider detail', { status: 503 })
-        : response(parts[parts.length - 1], 'AXP');
+    }, async (url, init) => {
+      if (endpoint(String(url)) !== 'research-audio') return response(String(url), init);
+      if (failure === 'http') return new Response('', { status: 503 });
+      return Response.json({ ticker: 'AAPL', transcript: failure === 'mismatched_transcript' ? 'a different document' : fixture.script,
+        status: 'audio_unavailable', audio_base64: null, audio_mime_type: null });
     });
   });
 }
 
-test('a pending request survives tab switching and completes in its original panel', async () => {
-  let resolve!: (value: Response) => void;
-  await harness(async (view, calls) => {
-    const button = view.root.findAllByProps({ role: 'tabpanel' })[0].findByType('button');
-    let pending!: Promise<void>;
-    act(() => { pending = button.props.onClick(); });
-    assert.ok(JSON.stringify(view.toJSON()).includes('Preparing research context'));
-    select(view, 1);
-    assertActive(view, 1);
-    assert.equal(calls.length, 1);
-    await act(async () => { resolve(response('snowflake-research', 'AXP')); await pending; });
-    select(view, 0);
-    assert.ok(JSON.stringify(view.toJSON()).includes(generated[0]));
-    assert.equal(calls.length, 1);
-  }, () => new Promise<Response>(done => { resolve = done; }));
-});
-
-test('keyboard navigation supports arrows, wrapping, Home and End without fetching', async () => {
-  await harness(async (view, calls) => {
-    let prevented = 0, focused = -1;
-    for (const [from, key, expected] of [[0, 'ArrowLeft', 2], [2, 'ArrowRight', 0], [0, 'End', 2], [2, 'Home', 0]] as const) {
-      act(() => view.root.findAllByProps({ role: 'tab' })[from].props.onKeyDown({ key,
-        preventDefault: () => { prevented++; }, currentTarget: { parentElement: {
-          querySelectorAll: () => [0, 1, 2].map(i => ({ focus: () => { focused = i; } })),
-        } },
-      }));
-      assertActive(view, expected);
-      assert.equal(focused, expected);
-    }
-    assert.equal(prevented, 4);
-    assert.equal(calls.length, 0);
+test('explicit regeneration reruns BOTH providers and invalidates the old document/audio', async () => {
+  await harness(async (view, calls, revoked) => {
+    await click(view, 'Generate AI Research'); await click(view, 'Listen to Research');
+    act(() => button(view, 'Generate AI Research').props.onClick());
+    assert.equal(summaries(view).length, 0);
+    assert.equal(view.root.findAllByType('audio').length, 0);
+    assert.deepEqual(revoked, ['blob:research']);
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+    assert.equal(summaries(view).length, 1);
+    assert.equal(button(view, 'Listen to Research').props.disabled, false);
+    assert.equal(calls.filter(call => endpoint(call.url) === 'explain').length, 2);
+    assert.equal(calls.filter(call => endpoint(call.url) === 'snowflake-research').length, 2);
+    assert.equal(calls.filter(call => endpoint(call.url) === 'research-audio').length, 1);
   });
 });
 
-test('responsive tabs wrap with touch-sized controls and hidden panels cannot display', () => {
-  const css = readFileSync(new URL('../styles/index.css', import.meta.url), 'utf8');
-  assert.match(css, /\.ie-research-assistant-tabs\s*\{[^}]*flex-wrap: wrap/s);
-  assert.match(css, /\.ie-research-assistant-tabs \[role="tab"\]\s*\{[^}]*min-height: 44px/s);
-  assert.match(css, /\.ie-research-assistant-panel\[hidden\]\s*\{[^}]*display: none/s);
+test('retry after failure explicitly regenerates both without automatic retries', async () => {
+  let first = true;
+  await harness(async (view, calls) => {
+    await click(view, 'Generate AI Research');
+    assert.ok(content(view).includes('Quantitative AI interpretation was unavailable.'));
+    assert.equal(calls.length, 2);
+    first = false;
+    await click(view, 'Generate AI Research');
+    assert.equal(calls.length, 4);
+    assert.equal(summaries(view).length, 1);
+    assert.ok(!content(view).includes('Quantitative AI interpretation was unavailable.'));
+  }, async (url, init) => first && endpoint(String(url)) === 'explain'
+    ? new Response('', { status: 503 }) : response(String(url), init));
+});
+
+for (const change of ['company', 'event']) {
+  test(`${change} change clears document and audio, preserving event-keyed resets`, async () => {
+    await harness(async (view, calls, revoked) => {
+      await click(view, 'Generate AI Research'); await click(view, 'Listen to Research');
+      act(() => view.update(<AIResearchAssistant ticker={change === 'company' ? 'BRK.B' : 'AAPL'}
+        evidenceKey={change === 'event' ? '2026-10-05' : '2026-10-02'} />));
+      assert.equal(summaries(view).length, 0);
+      assert.equal(view.root.findAllByType('audio').length, 0);
+      assert.deepEqual(revoked, ['blob:research']);
+      assert.equal(calls.length, 3);
+      assert.ok(button(view, 'Generate AI Research'));
+    });
+  });
+}
+
+test('changing event aborts both pending requests and ignores their late responses', async () => {
+  const resolves: ((value: Response) => void)[] = [];
+  await harness(async (view, calls) => {
+    act(() => button(view, 'Generate AI Research').props.onClick());
+    act(() => view.update(<AIResearchAssistant ticker="AAPL" evidenceKey="2026-10-05" />));
+    calls.forEach(call => assert.ok(call.init?.signal?.aborted));
+    await act(async () => { resolves[0](response('/snowflake-research')); resolves[1](response('/explain')); });
+    assert.equal(summaries(view).length, 0);
+    assert.equal(calls.length, 2);
+  }, () => new Promise<Response>(resolve => resolves.push(resolve)));
+});
+
+test('only available source sections render and unsupported text is never synthesized by combination', () => {
+  const explanation = { ...fixture.gemini_explanation, supportive_evidence: [], risk_evidence: [] };
+  const document = combineResearch(null, explanation)!;
+  assert.equal(document.sections.some(section => section.title === 'Supporting Evidence'), false);
+  assert.equal(document.sections.some(section => section.title === 'Risks / Counter-Evidence'), false);
+  assert.equal(combineResearch(null, null), null);
+  assert.ok(document.sections.every(section => section.items.every(item => Object.values(explanation).flat().includes(item))));
 });
