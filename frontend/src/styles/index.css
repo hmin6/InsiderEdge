@@ -120,6 +120,18 @@
 .ie-chart-region {
   min-height: 400px;
 }
+.ie-price-chart .recharts-line,
+.ie-price-chart .recharts-line *,
+.ie-price-chart .recharts-reference-dot,
+.ie-price-chart .recharts-reference-dot *,
+.ie-price-chart .recharts-active-dot,
+.ie-price-chart .recharts-active-dot * {
+  pointer-events: none;
+}
+.ie-price-chart {
+  user-select: none;
+  -webkit-user-select: none;
+}
 .ie-price-chart-readout {
   position: absolute;
   top: -12px;

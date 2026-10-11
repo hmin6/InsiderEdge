@@ -88,6 +88,10 @@ function InspectionLayer({ prices, allPrices, readoutHost, onZoom, markedPoints,
       aria-valuenow={Math.max(0, points.findIndex(point => point.date === pinned?.date))}
       aria-valuetext={pinned ? `${pinned.date}: ${formatCurrency(pinned.analysis_price)}` : 'No pinned price'}
       onKeyDown={event => {
+        if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z') {
+          event.preventDefault(); setMarkedPoints(current => current.slice(0, -1));
+          setSelectedDate(null); setPinned(null); return;
+        }
         if (["+", "=", "-"].includes(event.key)) {
           event.preventDefault(); onZoom(0.5, event.key === "-" ? 1 : -1); return;
         }
@@ -102,6 +106,7 @@ function InspectionLayer({ prices, allPrices, readoutHost, onZoom, markedPoints,
       }}
       onPointerDown={event => {
         if (event.button !== 0) return;
+        event.currentTarget.focus({ preventScroll: true });
         pointerStart.current = event.clientX; moved.current = false;
         dragging.current = true; setIsDragging(true); inspect(event);
         event.currentTarget.setPointerCapture(event.pointerId);
@@ -141,10 +146,16 @@ function InspectionLayer({ prices, allPrices, readoutHost, onZoom, markedPoints,
             role={saved ? 'button' : undefined} tabIndex={saved ? 0 : undefined}
             aria-label={saved ? `Highlight guideline for ${point.date}, ${formatCurrency(point.analysis_price)}` : undefined}
             aria-pressed={saved ? selected : undefined}
-            onClick={event => { event.stopPropagation(); setSelectedDate(point.date); }}
+            onClick={event => { event.stopPropagation(); setSelectedDate(current => current === point.date ? null : point.date); }}
             onKeyDown={event => {
+              if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z') {
+                event.preventDefault(); event.stopPropagation();
+                setMarkedPoints(current => current.slice(0, -1));
+                setSelectedDate(null); setPinned(null);
+                interactionArea.current?.focus({ preventScroll: true }); return;
+              }
               if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault(); event.stopPropagation(); setSelectedDate(point.date);
+                event.preventDefault(); event.stopPropagation(); setSelectedDate(current => current === point.date ? null : point.date);
               }
             }}>
             <tspan x={labelX}>{formatCurrency(point.analysis_price)}</tspan>
