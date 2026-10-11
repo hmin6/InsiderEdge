@@ -15,6 +15,12 @@ import {
 } from "recharts";
 import { PricePoint, InsiderTransaction } from "../types/api";
 
+// The transparent ring clears the qualifying-filing dot, including its white stroke.
+export function PriceHoverMarker({ cx, cy }: { cx?: number; cy?: number }) {
+  return <circle cx={cx} cy={cy} r={10} fill="none" stroke="#fbbf24"
+    strokeWidth={2} pointerEvents="none" aria-hidden="true" />;
+}
+
 interface PriceChartProps {
   prices: PricePoint[];
   transactions: InsiderTransaction[];
@@ -162,11 +168,10 @@ function InspectionLayer({ prices, allPrices, readoutHost, onZoom, markedPoints,
             <tspan x={labelX} dy={18} fill={selected ? '#f97316' : 'var(--ie-muted)'}>{point.date}</tspan>
           </text>}
           <line x1={x} x2={x} y1={plot.y} y2={plot.y + plot.height}
-            stroke={selected ? '#f97316' : active ? 'var(--ie-text)' : 'var(--ie-primary)'}
+            stroke={selected ? '#f97316' : active ? '#fbbf24' : 'var(--ie-primary)'}
             strokeWidth={selected ? 3.5 : active ? 2.5 : 2} strokeOpacity={selected || active ? 1 : 0.9}
-            strokeDasharray={active ? undefined : '5 3'} />
-          {active && Number.isFinite(y) && <circle cx={x} cy={y} r={4}
-            fill="var(--ie-text)" stroke="var(--ie-workspace)" strokeWidth={2} />}
+            strokeDasharray={active ? '4 4' : '5 3'} />
+          {active && Number.isFinite(y) && <PriceHoverMarker cx={x} cy={y} />}
 
         </g>;
       })}
@@ -227,6 +232,13 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
   }
 
   return (
+    <div style={{ width: "100%" }}>
+      <ul aria-label="Price chart legend" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px',
+        listStyle: 'none', padding: 0, margin: '0 0 8px', fontSize: 12, color: 'var(--ie-text)' }}>
+        <li><svg width="24" height="12" aria-hidden="true"><defs><linearGradient id={`${gradientId}-legend`}><stop stopColor="#15803d" /><stop offset="50%" stopColor="#facc15" /><stop offset="100%" stopColor="#b91c1c" /></linearGradient></defs><line x1="0" y1="6" x2="24" y2="6" stroke={`url(#${gradientId}-legend)`} strokeWidth="2" /></svg>{' '}Adjustment-aware price</li>
+        <li><svg width="16" height="14" aria-hidden="true"><circle cx="8" cy="7" r="5" fill="var(--ie-primary)" stroke="#fff" strokeWidth="2" /></svg>{' '}Qualifying purchase filing</li>
+        <li><svg width="24" height="24" aria-hidden="true"><PriceHoverMarker cx={12} cy={12} /></svg>{' '}Active price point</li>
+      </ul>
     <div ref={setReadoutHost} className="ie-price-chart" style={{ width: "100%", height: 400, position: "relative" }}>
       <div style={{ position: "absolute", top: 0, right: 0, zIndex: 2, display: "flex", gap: 4 }}>
         <button type="button" className="ie-button" disabled={!markedPoints.length}
@@ -274,12 +286,7 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
             stroke={`url(#${gradientId})`}
             strokeWidth={2}
             dot={false}
-            activeDot={{
-              r: 6,
-              fill: "var(--ie-primary)",
-              stroke: "#fff",
-              strokeWidth: 2,
-            }}
+            activeDot={<PriceHoverMarker />}
             animationDuration={300}
             isAnimationActive={!reducedMotion}
           />
@@ -299,6 +306,7 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
             markedPoints={markedPoints} setMarkedPoints={setMarkedPoints} />
         </LineChart>
       </ResponsiveContainer>
+    </div>
     </div>
   );
 }
