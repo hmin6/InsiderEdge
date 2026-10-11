@@ -83,6 +83,55 @@ def test_malformed_response(monkeypatch):
     assert research(EVIDENCE, SnowflakeProvider()).status == 'unavailable'
 
 
+@pytest.mark.parametrize('content,expected', [
+    ({}, 'missing_key'),
+    ({**CONTENT, 'MALICIOUS_EXTRA_KEY': 'PRIVATE_GENERATED_TEXT'}, 'unexpected_key'),
+    *[({**CONTENT, 'event_context': value}, 'wrong_type')
+      for value in ('PRIVATE_GENERATED_TEXT', {}, None, [1], [[]])],
+    ({**CONTENT, 'event_context': []}, 'empty_required_list'),
+    *[({**CONTENT, field: ['PRIVATE_GENERATED_TEXT'] * 7}, field) for field in CONTENT],
+    *[({**CONTENT, field: [value]}, field)
+      for field in CONTENT for value in ('   ', 'x' * 701)],
+    ([], 'wrong_type'),
+    # The first error is the missing section, even with a malicious extra key.
+    ({'MALICIOUS_EXTRA_KEY': 'PRIVATE_GENERATED_TEXT'}, 'missing_key'),
+])
+def test_schema_field_diagnostics(monkeypatch, caplog, content, expected):
+    import logging
+    configure(monkeypatch)
+    caplog.set_level(logging.WARNING, logger='app.services.snowflake_research')
+    ai_providers.post.side_effect = None
+    ai_providers.post.return_value = body(content), 'application/json'
+    evidence = {**EVIDENCE, 'company_name': 'PRIVATE_EVIDENCE_MARKER'}
+    result = research(evidence, SnowflakeProvider())
+    assert result.model_dump() == research(evidence, Mock(
+        generate=Mock(side_effect=ai_providers.ProviderFailure('private')))).model_dump()
+    record = caplog.records[0]
+    assert record.getMessage() == (
+        'Snowflake research unavailable ticker=AAPL research_event_id=AAPL:2026-03-16 '
+        f'reason=schema_validation_failed schema_field={expected}')
+    assert record.exc_info is None
+    for forbidden in ('PRIVATE_GENERATED_TEXT', 'MALICIOUS_EXTRA_KEY',
+                      'PRIVATE_EVIDENCE_MARKER', 'synthetic-test-token', 'Authorization',
+                      'Use only supplied evidence', 'ValidationError'):
+        assert forbidden not in caplog.text
+    assert 'schema_field' not in result.model_dump_json()
+
+
+def test_schema_field_other_and_defensive_allowlist(caplog):
+    from app.services.snowflake_research import schema_failure_field
+    assert schema_failure_field(Mock(errors=Mock(return_value=[]))) == 'other'
+    assert schema_failure_field(Mock(errors=Mock(return_value=[
+        {'type': 'unknown', 'loc': ('MALICIOUS_EXTRA_KEY',)}]))) == 'other'
+    error = ai_providers.ProviderFailure('PRIVATE_GENERATED_TEXT',
+                                         reason_category='schema_validation_failed')
+    error.schema_field = 'MALICIOUS_EXTRA_KEY'
+    assert research(EVIDENCE, Mock(generate=Mock(side_effect=error))).status == 'unavailable'
+    assert 'schema_field=other' in caplog.text
+    assert 'MALICIOUS_EXTRA_KEY' not in caplog.text
+    assert 'PRIVATE_GENERATED_TEXT' not in caplog.text
+
+
 @pytest.mark.parametrize('origin', ['http://test.snowflakecomputing.com', 'https://evil.test',
                                    'https://test.snowflakecomputing.com@evil.test',
                                    'https://test.snowflakecomputing.com/path'])

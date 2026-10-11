@@ -8,7 +8,7 @@ from datetime import date
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 from sqlalchemy import select
 
 from app.db.models import ResearchEvent, InsiderTransaction
@@ -26,6 +26,33 @@ class Context(BaseModel):
     event_context: Section
     research_considerations: Section
     filing_context: Section
+
+
+SCHEMA_FIELDS = frozenset({'event_context', 'research_considerations', 'filing_context',
+                           'missing_key', 'unexpected_key', 'wrong_type',
+                           'empty_required_list', 'other'})
+
+
+def schema_failure_field(error):
+    """Classify only the first error; never expose input, messages or arbitrary keys."""
+    errors = error.errors(include_input=False, include_context=False, include_url=False)
+    if not errors:
+        return 'other'
+    first = errors[0]
+    kind = first.get('type')
+    location = first.get('loc', ())
+    if kind == 'missing':
+        return 'missing_key'
+    if kind == 'extra_forbidden':
+        return 'unexpected_key'
+    if kind in {'model_type', 'model_attributes_type', 'list_type', 'string_type'}:
+        return 'wrong_type'
+    sections = {'event_context', 'research_considerations', 'filing_context'}
+    if location and location[0] in sections:
+        if kind == 'too_short' and len(location) == 1:
+            return 'empty_required_list'
+        return location[0]
+    return 'other'
 
 
 class ResearchResponse(BaseModel):
@@ -410,6 +437,8 @@ class SnowflakeProvider:
         except Exception as error:
             failure = ai_providers.ProviderFailure('Snowflake response unavailable',
                                                    reason_category=category)
+            if category == 'schema_validation_failed' and isinstance(error, ValidationError):
+                failure.schema_field = schema_failure_field(error)
             if category == 'numeric_grounding_rejected' and isinstance(error, NumericGroundingFailure):
                 failure.numeric_diagnostic = (error.rejected_token, error.token_kind,
                                               error.token_source, error.containing_date)
@@ -427,6 +456,7 @@ def research(evidence, provider):
     numeric_diagnostic = None
     year_context = None
     year_preceder = None
+    schema_field = None
     if event:
         try:
             model, context = provider.generate(evidence)
@@ -436,6 +466,7 @@ def research(evidence, provider):
             numeric_diagnostic = getattr(error, 'numeric_diagnostic', None)
             year_context = getattr(error, 'year_context', None)
             year_preceder = getattr(error, 'year_preceder', None)
+            schema_field = getattr(error, 'schema_field', None)
     # Only fixed categories and validated identifiers; no provider text or exc_info.
     allowed = {'configuration_missing', 'provider_timeout', 'provider_http_error',
                'provider_response_invalid', 'finish_reason_rejected', 'schema_validation_failed',
@@ -447,7 +478,11 @@ def research(evidence, provider):
     identifier = base['research_event_id']
     safe_ticker = ticker if re.fullmatch(r'[A-Z0-9.-]{1,20}', ticker) else 'invalid'
     safe_event = identifier if identifier and re.fullmatch(r'[A-Z0-9.-]{1,20}:\d{4}-\d{2}-\d{2}', identifier) else None
-    if category == 'numeric_grounding_rejected' and numeric_diagnostic is not None:
+    if category == 'schema_validation_failed':
+        safe_field = schema_field if isinstance(schema_field, str) and schema_field in SCHEMA_FIELDS else 'other'
+        logger.warning('Snowflake research unavailable ticker=%s research_event_id=%s reason=%s schema_field=%s',
+                       safe_ticker, safe_event, category, safe_field)
+    elif category == 'numeric_grounding_rejected' and numeric_diagnostic is not None:
         rejected, kind, source, containing_date = numeric_diagnostic
         # Defensive allowlists: no surrounding text, control characters or arbitrary kinds.
         kinds = {'integer', 'decimal', 'grouped_decimal', 'currency', 'percentage',
