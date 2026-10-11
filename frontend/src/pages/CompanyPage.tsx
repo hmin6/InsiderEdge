@@ -1,3 +1,4 @@
+import { statisticsVisibility, predictionVisibility, companyTourSteps } from "../components/metricVisibility";
 import { CompanyScore } from "../components/ResearchStates";
 import { AIResearchAssistant } from "../components/AIResearchAssistant";
 import { useCallback, useState, useEffect } from "react";
@@ -237,14 +238,14 @@ function CompanyResearch({ ticker }: { ticker: string }) {
   }, []);
 
   useEffect(() => {
-    if (company.data) {
+    if (company.data && !statistics.loading && !prediction.loading) {
       const hasSeenTour = localStorage.getItem("ie_has_seen_company_tour_v2");
       if (!hasSeenTour) {
         const timer = setTimeout(() => setRunTour(true), 800);
         return () => clearTimeout(timer);
       }
     }
-  }, [company.data]);
+  }, [company.data, statistics.loading, prediction.loading]);
 
   const handleJoyrideCallback = (data: any) => {
     const { status } = data;
@@ -265,6 +266,9 @@ function CompanyResearch({ ticker }: { ticker: string }) {
       Retry
     </button>
   );
+  const visibleStats = statisticsVisibility(statistics.data);
+  const visiblePrediction = predictionVisibility(prediction.data);
+  const availableTourSteps = companyTourSteps(tourSteps, statistics.data, prediction.data);
   const eventKey = data?.latest_public_event_day || "no-event";
 
   return (
@@ -272,7 +276,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
       {isMounted && (
         <JoyrideComponent
           key={tourKey}
-          steps={tourSteps}
+          steps={availableTourSteps}
           run={runTour}
           continuous={true}
           disableBeacon={true}
@@ -295,7 +299,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
           description={data?.sector || "Company Research"}
           actions={
             <>
-              <button className="ie-button" onClick={startTourManually}>
+              <button className="ie-button" onClick={startTourManually} disabled={company.loading || statistics.loading || prediction.loading || !company.data}>
                 🧭 Take a Tour
               </button>
               <Link to="/" className="ie-button ie-button--primary">
@@ -331,7 +335,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
               </PanelBoundary>
             </div>
 
-            <div className="ie-grid" style={{ alignItems: "stretch" }}>
+            <div className="ie-grid" style={{ alignItems: "stretch", gridTemplateColumns: visiblePrediction.panel || visibleStats.eventStudy || statistics.loading || prediction.loading ? undefined : "minmax(0, 1fr)" }}>
               <div
                 className="ie-stack"
                 style={{
@@ -356,7 +360,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                   )}
                 </Panel>
 
-                <PanelBoundary label="Statistics">
+                {(statistics.loading || visibleStats.activity || visibleStats.market) && <PanelBoundary label="Statistics">
                   <div
                     style={{
                       flexGrow: 1,
@@ -367,14 +371,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                     {statistics.loading ? (
                       <PanelSkeleton label="Loading statistics" rows={4} />
                     ) : statistics.error || !statistics.data ? (
-                      <Panel title="Statistical Evidence" style={{ flex: 1 }}>
-                        <StateMessage
-                          kind="error"
-                          title="Statistical evidence unavailable"
-                        >
-                          Missing values are not zero.
-                        </StateMessage>
-                      </Panel>
+                      null
                     ) : (
                       <div
                         style={{
@@ -385,7 +382,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                         }}
                       >
                         <div
-                          className="tour-activity-panel"
+                          className="ie-stack"
                           style={{ flex: 1 }}
                         >
                           <StatisticsEvidence data={statistics.data} />
@@ -393,9 +390,10 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                       </div>
                     )}
                   </div>
-                </PanelBoundary>
+                </PanelBoundary>}
               </div>
 
+              {(visiblePrediction.panel || visibleStats.eventStudy || statistics.loading || prediction.loading) && (
               <div
                 className="ie-stack"
                 style={{
@@ -404,7 +402,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                   height: "100%",
                 }}
               >
-                <div className="tour-prediction-panel">
+                {(prediction.loading || visiblePrediction.panel) && <div className="tour-prediction-panel">
                   <PanelBoundary label="Prediction">
                     {prediction.loading ? (
                       <PanelSkeleton
@@ -412,18 +410,14 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                         rows={2}
                       />
                     ) : prediction.error || !prediction.data ? (
-                      <Panel title="ML Prediction">
-                        <StateMessage title="Model prediction unavailable">
-                          Model probability could not be loaded.
-                        </StateMessage>
-                      </Panel>
+                      null
                     ) : (
                       <PredictionEvidence data={prediction.data} />
                     )}
                   </PanelBoundary>
-                </div>
+                </div>}
 
-                <div
+                {(statistics.loading || visibleStats.eventStudy) && <div
                   className="tour-event-study-panel"
                   style={{
                     flexGrow: 1,
@@ -446,10 +440,14 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                       )}
                     </div>
                   </PanelBoundary>
-                </div>
+                </div>}
               </div>
+              )}
             </div>
 
+            {!!(statistics.error || prediction.error) && <p className="ie-muted" role="status">
+              Some quantitative data could not be loaded. {!!statistics.error && retry(statistics.retry)} {!!prediction.error && retry(prediction.retry)}
+            </p>}
             <PanelBoundary label="Price history">
               <Panel title="Historical Price & Events">
                 <div className="ie-chart-region">

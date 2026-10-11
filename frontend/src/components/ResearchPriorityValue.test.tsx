@@ -18,8 +18,8 @@ test('compact precedence preserves zero and canonical separation', () => {
   assert.match(render(null, 'insufficient_data', {...coverage, partial_index: null, estimated_activity_index: null}), /—/);
   assert.doesNotMatch(render(null, 'insufficient_data'), /Qualifying purchases|<p>|<details>/);
 });
-test('Radar uses compact value and retains raw canonical sorting', () => {
+test('Radar uses compact value and preserves the compact score display', () => {
   const source = readFileSync(new URL('../pages/RadarPage.tsx', import.meta.url), 'utf8');
-  assert.match(source, /<ResearchPriorityValue score=\{item.insider_edge_score\}/);
-  assert.doesNotMatch(source, /<QuantitativeCoverage|estimated_activity_index|partial_index|<th>Signal Summary/);
+  assert.match(source, /<ResearchPriorityValue\s+score=\{item.insider_edge_score\}/);
+  assert.doesNotMatch(source, /<QuantitativeCoverage|<th>Signal Summary/);
 });

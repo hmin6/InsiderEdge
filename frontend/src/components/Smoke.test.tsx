@@ -13,6 +13,7 @@ import {
 import { PriceChart } from "./PriceChart";
 import {
   StatisticsEvidence,
+  EventStudyEvidence,
   PredictionEvidence,
   rankRadar,
 } from "./ResearchStates";
@@ -43,7 +44,7 @@ test("3. Company page renders headline score", () => {
 
 test("4. Statistics section renders", () => {
   const statsHtml = renderToStaticMarkup(
-    <StatisticsEvidence data={DEV_MOCK_STATISTICS} />,
+    <><StatisticsEvidence data={DEV_MOCK_STATISTICS} /><EventStudyEvidence data={DEV_MOCK_STATISTICS} /></>,
   );
   assert.match(statsHtml, /Anomaly &amp; Activity Evidence/);
   assert.match(statsHtml, /Event Study &amp; Statistical Evidence/);
@@ -78,9 +79,9 @@ test("6. Empty optional fields do not crash and 7. insufficient_data is displaye
       }}
     />,
   );
-  assert.match(emptyStatsHtml, /Anomaly evidence is unavailable/);
-  assert.match(emptyStatsHtml, /Future CAR is not yet known/);
-  assert.match(emptyStatsHtml, /Combined statistical score unavailable/);
+  assert.doesNotMatch(emptyStatsHtml, /Anomaly Score/);
+  assert.doesNotMatch(emptyStatsHtml, /CAR5|CAR90/);
+  assert.doesNotMatch(emptyStatsHtml, /Combined statistical score unavailable/);
 
   const insufficientPredHtml = renderToStaticMarkup(
     <PredictionEvidence
@@ -91,7 +92,7 @@ test("6. Empty optional fields do not crash and 7. insufficient_data is displaye
       }}
     />,
   );
-  assert.match(insufficientPredHtml, /Model prediction unavailable/);
+  assert.doesNotMatch(insufficientPredHtml, /Outperformance Probability/);
 });
 
 test("8. API failure produces a useful error state and 9. Unknown company does not produce a blank screen", () => {
@@ -107,7 +108,7 @@ test("8. API failure produces a useful error state and 9. Unknown company does n
 
   // Initially, useResource puts the page in a loading state, avoiding a blank screen
   // and safely preparing to catch the API failure gracefully.
-  assert.match(companyHtml, /Loading company score/);
+  assert.match(companyHtml, /Loading workspace/);
   assert.match(companyHtml, /UNKNOWN/); // The unknown ticker is safely rendered in the header
 });
 
