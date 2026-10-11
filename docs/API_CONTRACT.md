@@ -281,6 +281,66 @@ type BriefResponse = {
 
 If the team intentionally changes to a stored audio URL/blob route, update this contract and frontend type together before implementation. Do not silently diverge.
 
+## `POST /api/companies/{ticker}/research-audio` (Issue #118)
+
+Speech synthesis of the same structured research document displayed by the AI
+Research Assistant. This additive route does not change the existing no-body
+`/brief` endpoint or any existing response format. It calls ElevenLabs only.
+
+Required JSON request:
+
+```ts
+type ResearchAudioRequest = {
+  research_event_id: string
+  snowflake_context?: {
+    event_context: string[]
+    research_considerations: string[]
+    filing_context: string[]
+  } | null
+  gemini_explanation?: ExplainResponse | null
+  document: {
+    title: "Research Summary"
+    sections: { title: string; items: string[] }[]
+    sources: string[]
+    unavailable: string[]
+    disclaimer: string
+  }
+}
+```
+
+At least one server-verified provider result is required. Every submitted result
+must exactly match a recent validated generation for the correct ticker/event
+and freshly assembled persisted evidence. Verification expires after 20 minutes
+and is held in a bounded per-worker hash cache. Missing/expired verification
+(including worker restarts or a different worker) returns HTTP 403, with no speech
+request. There is no fallback to an independent analyst brief.
+
+The server reconstructs `document` deterministically in this order, omitting
+empty sections: Event & Filing Context (Snowflake event + filing context), Signal
+Interpretation (Gemini why_flagged), Supporting Evidence, Risks / Counter-Evidence,
+Uncertainty & Limitations (Gemini uncertainty + limitations), Research
+Considerations (Snowflake). Source statements are retained verbatim. Attribution,
+missing-provider notices and the research-only disclaimer are fixed strings.
+The entire submitted document must match this reconstruction; altered text,
+sections, attribution or notices return HTTP 403.
+
+All request objects forbid extra fields. Provider section/string bounds remain
+unchanged (Snowflake: six items per section; Gemini: eight, with up to 32 appended
+limitations; strings: 700 characters). The document has at most six non-empty
+sections, 40 items per section, two attributions and two missing-provider notices.
+Speech input is bounded to 10,000 characters, including the document and the
+minimal `InsiderEdge research for {ticker}.` introduction. Oversized scripts
+return HTTP 413; malformed requests return HTTP 422; stale event IDs return HTTP
+409. Unknown tickers retain HTTP 404.
+
+The response uses the existing `BriefResponse` shape. `transcript` is exactly the
+document headings, items, missing-provider notices, attribution and disclaimer
+in display order, separated by newlines, preceded only by that introduction.
+Successful audio has status `ok`, non-empty `audio_base64`, and
+`audio_mime_type: "audio/mpeg"`. Audio failure retains the same transcript with
+status `audio_unavailable` and null audio fields. No research provider is called
+and no signal or score is modified.
+
 ## Error behavior
 
 ### Unknown ticker
