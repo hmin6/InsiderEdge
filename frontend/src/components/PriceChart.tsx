@@ -1,6 +1,6 @@
 import { formatCurrency } from "../utils/format";
 import { createPortal } from "react-dom";
-import { useMemo, useEffect, useState, useRef, useId } from "react";
+import { useMemo, useEffect, useState, useRef, useId, type Dispatch, type SetStateAction } from "react";
 import {
   LineChart,
   Line,
@@ -20,15 +20,16 @@ interface PriceChartProps {
   transactions: InsiderTransaction[];
 }
 
-function InspectionLayer({ prices, allPrices, readoutHost, onZoom }: {
+function InspectionLayer({ prices, allPrices, readoutHost, onZoom, markedPoints, setMarkedPoints }: {
   prices: PricePoint[]; allPrices: PricePoint[]; readoutHost: HTMLDivElement | null;
   onZoom: (fraction: number, delta: number) => void;
+  markedPoints: PricePoint[];
+  setMarkedPoints: Dispatch<SetStateAction<PricePoint[]>>;
 }) {
   const interactionArea = useRef<SVGRectElement>(null);
   const plot = usePlotArea();
   const xScale = useXAxisScale();
   const yScale = useYAxisScale();
-  const [markedPoints, setMarkedPoints] = useState<PricePoint[]>([]);
   const pointerStart = useRef<number | null>(null);
   const moved = useRef(false);
   const [pinned, setPinned] = useState<PricePoint | null>(null);
@@ -147,6 +148,7 @@ function InspectionLayer({ prices, allPrices, readoutHost, onZoom }: {
 }
 
 export function PriceChart({ prices, transactions }: PriceChartProps) {
+  const [markedPoints, setMarkedPoints] = useState<PricePoint[]>([]);
   const gradientId = `price-direction-${useId().replace(/:/g, '')}`;
   const [zoomRange, setZoomRange] = useState<{ start: number; end: number } | null>(null);
   useEffect(() => { setZoomRange(null); }, [prices]);
@@ -199,9 +201,12 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
 
   return (
     <div ref={setReadoutHost} className="ie-price-chart" style={{ width: "100%", height: 400, position: "relative" }}>
-      {zoomRange && <button type="button" className="ie-button"
-        style={{ position: "absolute", top: 0, right: 0, zIndex: 2 }}
-        onClick={() => setZoomRange(null)}>Reset zoom</button>}
+      <div style={{ position: "absolute", top: 0, right: 0, zIndex: 2, display: "flex", flexDirection: "column", gap: 4 }}>
+        {zoomRange && <button type="button" className="ie-button"
+          onClick={() => setZoomRange(null)}>Reset zoom</button>}
+        <button type="button" className="ie-button" disabled={!markedPoints.length}
+          onClick={() => setMarkedPoints([])}>Clear marks</button>
+      </div>
       <ResponsiveContainer>
         <LineChart
           accessibilityLayer={false}
@@ -263,7 +268,8 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
               strokeWidth={2.5}
             />
           ))}
-          <InspectionLayer prices={visiblePrices} allPrices={prices} readoutHost={readoutHost} onZoom={zoom} />
+          <InspectionLayer prices={visiblePrices} allPrices={prices} readoutHost={readoutHost} onZoom={zoom}
+            markedPoints={markedPoints} setMarkedPoints={setMarkedPoints} />
         </LineChart>
       </ResponsiveContainer>
     </div>
