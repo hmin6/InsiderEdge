@@ -253,7 +253,7 @@ export function CompanyScore({ data }: { data: CompanyResponse }) {
     <Panel title="InsiderEdge Score">
       {data.latest_public_event_day !== null ? (
         <StateMessage title="Not scored">
-          {NOT_SCORED_EXPLANATION} A research event is available for{' '}
+          {NOT_SCORED_EXPLANATION} A research event is available for{" "}
           {data.latest_public_event_day}. Missing evidence is not a zero score.
         </StateMessage>
       ) : (
