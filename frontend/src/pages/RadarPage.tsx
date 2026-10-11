@@ -132,49 +132,35 @@ const tourSteps: any[] = [
     target: "body",
     placement: "center",
     content:
-      "Welcome to the Company Research Profile! Let me show you how to read this institutional-grade quantitative research.",
+      "Welcome to our Hackathon Project: InsiderEdge! This platform identifies institutional-grade quantitative equity research by detecting anomalous insider trading clusters.",
     disableBeacon: true,
   },
   {
-    target: ".tour-score-panel",
-    placement: "bottom",
-    content:
-      "This is the overall InsiderEdge Score. It ranks the research priority of this event from 0-100 based on a blend of the components below.",
-    disableBeacon: true,
-  },
-  {
-    target: ".tour-activity-panel",
-    placement: "right",
-    content:
-      "Anomaly & Activity measures how unusual this insider buying is. We look at Mahalanobis distances and 30-day clustering to detect true conviction.",
-    disableBeacon: true,
-  },
-  {
-    target: ".tour-dislocation-panel",
-    placement: "right",
-    content:
-      "Market Dislocation evaluates if the stock is being bought into severe weakness or sector-wide drops, signaling a value setup.",
-    disableBeacon: true,
-  },
-  {
-    target: ".tour-prediction-panel",
-    placement: "left",
-    content:
-      "Our Machine Learning engine (XGBoost or Logistic Regression) predicts the exact probability that this stock will beat the benchmark over the next 30 days.",
-    disableBeacon: true,
-  },
-  {
-    target: ".tour-event-study-panel",
-    placement: "left",
-    content:
-      "The Event Study compares this exact setup against historical comparables, proving the edge using p-values, bootstrap intervals, and Mean CAR30.",
-    disableBeacon: true,
-  },
-  {
-    target: ".tour-ai-panel",
+    target: ".ie-radar-table",
     placement: "top",
     content:
-      "Finally, our AI Research Assistant uses Gemini and Snowflake Cortex to contextualize the filings, and ElevenLabs to generate an audio analyst brief!",
+      "Here is our Market Radar queue. It constantly scans recent SEC Form 4 filings and ranks them based on Mahalanobis distance, clustered buying, and XGBoost machine learning predictions.",
+    disableBeacon: true,
+  },
+  {
+    target: ".ie-radar-sort",
+    placement: "bottom",
+    content:
+      "You can sort the generated signals by different quantitative components. Try sorting by 'Anomaly' or 'Market Dislocation'!",
+    disableBeacon: true,
+  },
+  {
+    target: ".ie-radar-quick-search",
+    placement: "bottom",
+    content:
+      "If you want to evaluate a specific stock, type its ticker here. We normalize the SEC data and calculate the event study on the fly.",
+    disableBeacon: true,
+  },
+  {
+    target: ".ie-radar-table tbody tr:first-child",
+    placement: "bottom",
+    content:
+      "Click on any company row here to dive into the deep quantitative metrics, our ML evaluation, and the Gemini AI explanation for this exact event!",
     disableBeacon: true,
   },
 ];
@@ -667,7 +653,6 @@ export default function RadarPage() {
           showSkipButton={true}
           tooltipComponent={MascotTooltip}
           callback={handleJoyrideCallback}
-          disableScrollParentFix={true}
           styles={{
             options: { zIndex: 10000, primaryColor: "var(--ie-primary)" },
           }}

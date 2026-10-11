@@ -279,7 +279,6 @@ function CompanyResearch({ ticker }: { ticker: string }) {
           showSkipButton={true}
           tooltipComponent={MascotTooltip}
           callback={handleJoyrideCallback}
-          disableScrollParentFix={true}
           styles={{
             options: { zIndex: 10000, primaryColor: "var(--ie-primary)" },
           }}
