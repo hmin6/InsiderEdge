@@ -33,26 +33,41 @@ SCHEMA_FIELDS = frozenset({'event_context', 'research_considerations', 'filing_c
                            'empty_required_list', 'other'})
 
 
-def schema_failure_field(error):
+SCHEMA_CONSTRAINTS = frozenset({'too_many_items', 'blank_item', 'item_too_long', 'other'})
+
+
+def schema_failure_diagnostics(error):
     """Classify only the first error; never expose input, messages or arbitrary keys."""
     errors = error.errors(include_input=False, include_context=False, include_url=False)
     if not errors:
-        return 'other'
+        return 'other', 'other'
     first = errors[0]
     kind = first.get('type')
     location = first.get('loc', ())
     if kind == 'missing':
-        return 'missing_key'
+        return 'missing_key', 'other'
     if kind == 'extra_forbidden':
-        return 'unexpected_key'
+        return 'unexpected_key', 'other'
     if kind in {'model_type', 'model_attributes_type', 'list_type', 'string_type'}:
-        return 'wrong_type'
+        return 'wrong_type', 'other'
     sections = {'event_context', 'research_considerations', 'filing_context'}
     if location and location[0] in sections:
         if kind == 'too_short' and len(location) == 1:
-            return 'empty_required_list'
-        return location[0]
-    return 'other'
+            return 'empty_required_list', 'other'
+        constraint = 'other'
+        if kind == 'too_long' and len(location) == 1:
+            constraint = 'too_many_items'
+        elif len(location) == 2 and isinstance(location[1], int):
+            if kind == 'string_too_short':
+                constraint = 'blank_item'
+            elif kind == 'string_too_long':
+                constraint = 'item_too_long'
+        return location[0], constraint
+    return 'other', 'other'
+
+
+def schema_failure_field(error):
+    return schema_failure_diagnostics(error)[0]
 
 
 class ResearchResponse(BaseModel):
@@ -438,7 +453,7 @@ class SnowflakeProvider:
             failure = ai_providers.ProviderFailure('Snowflake response unavailable',
                                                    reason_category=category)
             if category == 'schema_validation_failed' and isinstance(error, ValidationError):
-                failure.schema_field = schema_failure_field(error)
+                failure.schema_field, failure.schema_constraint = schema_failure_diagnostics(error)
             if category == 'numeric_grounding_rejected' and isinstance(error, NumericGroundingFailure):
                 failure.numeric_diagnostic = (error.rejected_token, error.token_kind,
                                               error.token_source, error.containing_date)
@@ -457,6 +472,7 @@ def research(evidence, provider):
     year_context = None
     year_preceder = None
     schema_field = None
+    schema_constraint = None
     if event:
         try:
             model, context = provider.generate(evidence)
@@ -467,6 +483,7 @@ def research(evidence, provider):
             year_context = getattr(error, 'year_context', None)
             year_preceder = getattr(error, 'year_preceder', None)
             schema_field = getattr(error, 'schema_field', None)
+            schema_constraint = getattr(error, 'schema_constraint', None)
     # Only fixed categories and validated identifiers; no provider text or exc_info.
     allowed = {'configuration_missing', 'provider_timeout', 'provider_http_error',
                'provider_response_invalid', 'finish_reason_rejected', 'schema_validation_failed',
@@ -480,8 +497,10 @@ def research(evidence, provider):
     safe_event = identifier if identifier and re.fullmatch(r'[A-Z0-9.-]{1,20}:\d{4}-\d{2}-\d{2}', identifier) else None
     if category == 'schema_validation_failed':
         safe_field = schema_field if isinstance(schema_field, str) and schema_field in SCHEMA_FIELDS else 'other'
-        logger.warning('Snowflake research unavailable ticker=%s research_event_id=%s reason=%s schema_field=%s',
-                       safe_ticker, safe_event, category, safe_field)
+        safe_constraint = (schema_constraint if isinstance(schema_constraint, str)
+                           and schema_constraint in SCHEMA_CONSTRAINTS else 'other')
+        logger.warning('Snowflake research unavailable ticker=%s research_event_id=%s reason=%s schema_field=%s schema_constraint=%s',
+                       safe_ticker, safe_event, category, safe_field, safe_constraint)
     elif category == 'numeric_grounding_rejected' and numeric_diagnostic is not None:
         rejected, kind, source, containing_date = numeric_diagnostic
         # Defensive allowlists: no surrounding text, control characters or arbitrary kinds.

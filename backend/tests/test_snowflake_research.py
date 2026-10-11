@@ -107,15 +107,22 @@ def test_schema_field_diagnostics(monkeypatch, caplog, content, expected):
     assert result.model_dump() == research(evidence, Mock(
         generate=Mock(side_effect=ai_providers.ProviderFailure('private')))).model_dump()
     record = caplog.records[0]
+    expected_constraint = 'other'
+    if expected in CONTENT:
+        values = content[expected]
+        expected_constraint = ('too_many_items' if len(values) > 6 else
+                               'blank_item' if not values[0].strip() else 'item_too_long')
     assert record.getMessage() == (
         'Snowflake research unavailable ticker=AAPL research_event_id=AAPL:2026-03-16 '
-        f'reason=schema_validation_failed schema_field={expected}')
+        f'reason=schema_validation_failed schema_field={expected} '
+        f'schema_constraint={expected_constraint}')
     assert record.exc_info is None
     for forbidden in ('PRIVATE_GENERATED_TEXT', 'MALICIOUS_EXTRA_KEY',
                       'PRIVATE_EVIDENCE_MARKER', 'synthetic-test-token', 'Authorization',
                       'Use only supplied evidence', 'ValidationError'):
         assert forbidden not in caplog.text
     assert 'schema_field' not in result.model_dump_json()
+    assert 'schema_constraint' not in result.model_dump_json()
 
 
 def test_schema_field_other_and_defensive_allowlist(caplog):
@@ -126,10 +133,48 @@ def test_schema_field_other_and_defensive_allowlist(caplog):
     error = ai_providers.ProviderFailure('PRIVATE_GENERATED_TEXT',
                                          reason_category='schema_validation_failed')
     error.schema_field = 'MALICIOUS_EXTRA_KEY'
+    error.schema_constraint = 'PRIVATE_CONSTRAINT_MARKER'
     assert research(EVIDENCE, Mock(generate=Mock(side_effect=error))).status == 'unavailable'
     assert 'schema_field=other' in caplog.text
+    assert 'schema_constraint=other' in caplog.text
+    assert 'PRIVATE_CONSTRAINT_MARKER' not in caplog.text
     assert 'MALICIOUS_EXTRA_KEY' not in caplog.text
     assert 'PRIVATE_GENERATED_TEXT' not in caplog.text
+
+
+@pytest.mark.parametrize('field', list(CONTENT))
+@pytest.mark.parametrize('value,constraint', [
+    (['private'] * 7, 'too_many_items'), ([''], 'blank_item'),
+    (['   '], 'blank_item'), (['x' * 701], 'item_too_long'),
+])
+def test_schema_constraint_uses_same_first_error(field, value, constraint):
+    from pydantic import ValidationError
+    from app.services.snowflake_research import schema_failure_diagnostics
+    # A second error on this section must not replace the first error's constraint.
+    content = {**CONTENT, field: value, 'PRIVATE_EXTRA_KEY': 'PRIVATE_TEXT'}
+    with pytest.raises(ValidationError) as caught:
+        Context.model_validate(content)
+    assert schema_failure_diagnostics(caught.value) == (field, constraint)
+
+
+def test_schema_constraint_metadata_first_error_only():
+    from app.services.snowflake_research import schema_failure_diagnostics
+    error = Mock(errors=Mock(return_value=[
+        {'type': 'string_too_short', 'loc': ('event_context', 0)},
+        {'type': 'too_long', 'loc': ('filing_context',)},
+    ]))
+    assert schema_failure_diagnostics(error) == ('event_context', 'blank_item')
+    error.errors.assert_called_once_with(include_input=False, include_context=False, include_url=False)
+    error.errors.return_value = [{'type': 'unknown', 'loc': ('event_context', 0)}]
+    assert schema_failure_diagnostics(error) == ('event_context', 'other')
+    error.errors.return_value = []
+    assert schema_failure_diagnostics(error) == ('other', 'other')
+
+
+@pytest.mark.parametrize('field', list(CONTENT))
+def test_schema_constraint_boundary_valid(field):
+    content = {**CONTENT, field: ['x' * 700] * 6}
+    assert Context.model_validate(content).model_dump() == content
 
 
 @pytest.mark.parametrize('origin', ['http://test.snowflakecomputing.com', 'https://evil.test',
