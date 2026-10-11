@@ -233,10 +233,10 @@ export function PriceChart({ prices, transactions }: PriceChartProps) {
 
   return (
     <div style={{ width: "100%" }}>
-      <ul aria-label="Price chart legend" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px',
+      <ul className="ie-chart-legend-row" aria-label="Price chart legend" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px',
         listStyle: 'none', padding: 0, margin: '0 0 8px', fontSize: 12, color: 'var(--ie-text)' }}>
-        <li><svg width="24" height="12" aria-hidden="true"><defs><linearGradient id={`${gradientId}-legend`}><stop stopColor="#15803d" /><stop offset="50%" stopColor="#facc15" /><stop offset="100%" stopColor="#b91c1c" /></linearGradient></defs><line x1="0" y1="6" x2="24" y2="6" stroke={`url(#${gradientId}-legend)`} strokeWidth="2" /></svg>{' '}Adjustment-aware price</li>
-        <li><svg width="16" height="14" aria-hidden="true"><circle cx="8" cy="7" r="5" fill="var(--ie-primary)" stroke="#fff" strokeWidth="2" /></svg>{' '}Qualifying purchase filing</li>
+        <li><svg width="24" height="24" viewBox="0 0 24 12" aria-hidden="true"><defs><linearGradient id={`${gradientId}-legend`}><stop stopColor="#15803d" /><stop offset="50%" stopColor="#facc15" /><stop offset="100%" stopColor="#b91c1c" /></linearGradient></defs><line x1="0" y1="6" x2="24" y2="6" stroke={`url(#${gradientId}-legend)`} strokeWidth="2" /></svg>{' '}Adjustment-aware price</li>
+        <li><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="var(--ie-primary)" stroke="#fff" strokeWidth="2" /></svg>{' '}Qualifying purchase filing</li>
         <li><svg width="24" height="24" aria-hidden="true"><PriceHoverMarker cx={12} cy={12} /></svg>{' '}Active price point</li>
       </ul>
     <div ref={setReadoutHost} className="ie-price-chart" style={{ width: "100%", height: 400, position: "relative" }}>
