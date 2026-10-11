@@ -9,7 +9,11 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
-import { Joyride as ReactJoyride, Step, TooltipRenderProps } from "react-joyride";
+import {
+  Joyride as ReactJoyride,
+  Step,
+  TooltipRenderProps,
+} from "react-joyride";
 import { fetchRadar, usingResearchMocks } from "../api/client";
 import { useResource } from "../hooks/useResource";
 import { rankRadar, numeric } from "../components/ResearchStates";
@@ -96,35 +100,30 @@ const tourSteps: Step[] = [
     placement: "center",
     content:
       "Welcome to InsiderEdge! I'm Edge, your quantitative research assistant. Let's look at the market radar.",
-    disableBeacon: true,
   },
   {
     target: ".ie-radar-table",
     content:
       "This is the research queue. It constantly scans the market for significant insider trading events and ranks them by their statistical edge.",
     placement: "top",
-    disableBeacon: true,
   },
   {
     target: ".ie-radar-sort",
     content:
       "You can sort the queue by different quantitative components, like Market Dislocation or Anomaly scores.",
     placement: "bottom",
-    disableBeacon: true,
   },
   {
     target: ".ie-radar-quick-search",
     content:
       "Looking for a specific stock? Search for any ticker here to pull up its full institutional research profile.",
     placement: "bottom",
-    disableBeacon: true,
   },
   {
     target: ".ie-radar-table tbody tr:first-child",
     content:
       "Click on any company in this list to dive into the deep quantitative metrics, ML predictions, and AI explanations for that event!",
     placement: "bottom",
-    disableBeacon: true,
   },
 ];
 // --- END OF TOUR GUIDE IMPLEMENTATION ---
@@ -542,8 +541,10 @@ export default function RadarPage() {
         tooltipComponent={MascotTooltip}
         callback={handleJoyrideCallback}
         disableScrollParentFix={true}
-        styles={{
-          options: { zIndex: 10000, primaryColor: "var(--ie-primary)" },
+        options={{
+          zIndex: 10000,
+          primaryColor: "var(--ie-primary)",
+          skipBeacon: true,
         }}
       />
 
