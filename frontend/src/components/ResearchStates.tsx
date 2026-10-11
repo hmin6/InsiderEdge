@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { formatCount, formatPValue } from "../utils/format";
 import type { CompanyResponse, RadarItem } from "../types/api";
 import type { StatisticsResponse, PredictionResponse } from "../types/research";
@@ -91,64 +91,157 @@ function MetricCard({
   context: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  return (
-    <button
-      type="button"
-      className="ie-metric-card"
-      onClick={() => setIsOpen(!isOpen)}
-      style={{
-        textAlign: "left",
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "flex-start",
-        border: isOpen ? "1px solid var(--ie-primary)" : undefined,
-      }}
-      aria-expanded={isOpen}
-    >
-      <div
-        className="ie-metric-label"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          width: "100%",
-        }}
-      >
-        {label}
-        <span style={{ opacity: 0.5, fontSize: "10px" }}>
-          {isOpen ? "▼" : "ⓘ"}
-        </span>
-      </div>
-      <div className="ie-metric-value">{value}</div>
+  const popoverRef = useRef<HTMLDivElement>(null);
 
-      {isOpen && (
+  // Automatically close the pop-up if the user clicks outside of it
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  return (
+    <div style={{ position: "relative", height: "100%" }} ref={popoverRef}>
+      <button
+        type="button"
+        className="ie-metric-card"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          textAlign: "left",
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          borderColor: isOpen ? "var(--ie-primary)" : "var(--ie-border)",
+          boxShadow: isOpen ? "0 0 0 1px var(--ie-primary)" : undefined,
+        }}
+        aria-expanded={isOpen}
+      >
         <div
-          className="ie-metric-explanation ie-reveal"
+          className="ie-metric-label"
           style={{
-            marginTop: "12px",
-            paddingTop: "12px",
-            borderTop: "1px solid var(--ie-border)",
-            fontSize: "12.5px",
-            color: "var(--ie-muted)",
-            fontWeight: 400,
-            lineHeight: 1.4,
+            display: "flex",
+            justifyContent: "space-between",
+            width: "100%",
           }}
         >
-          <p style={{ marginBottom: "8px" }}>
-            <strong style={{ color: "var(--ie-text)" }}>Meaning:</strong>{" "}
-            {explanation}
-          </p>
-          <p style={{ marginBottom: "8px" }}>
-            <strong style={{ color: "var(--ie-text)" }}>Context:</strong>{" "}
-            {context}
-          </p>
-          <p style={{ fontSize: "11px", opacity: 0.6 }}>
+          {label}
+          <span
+            style={{ opacity: 0.5, fontSize: "12px", pointerEvents: "none" }}
+          >
+            ⓘ
+          </span>
+        </div>
+        <div className="ie-metric-value">{value}</div>
+      </button>
+
+      {/* Floating Pop-up over the grid */}
+      {isOpen && (
+        <div
+          className="ie-reveal"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "280px",
+            zIndex: 100,
+            background: "var(--ie-nav)",
+            padding: "16px",
+            borderRadius: "8px",
+            border: "1px solid var(--ie-border)",
+            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.6)",
+            color: "var(--ie-text)",
+            textAlign: "left",
+            cursor: "default",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(false);
+            }}
+            style={{
+              position: "absolute",
+              top: "8px",
+              right: "8px",
+              background: "transparent",
+              border: "none",
+              color: "var(--ie-muted)",
+              cursor: "pointer",
+              fontSize: "14px",
+              padding: "4px",
+              lineHeight: 1,
+            }}
+            aria-label="Close explanation"
+          >
+            ✕
+          </button>
+          <div
+            style={{
+              fontSize: "14px",
+              fontWeight: 600,
+              marginBottom: "12px",
+              color: "#fff",
+              paddingRight: "16px",
+            }}
+          >
+            {label}
+          </div>
+          <div
+            style={{ fontSize: "13px", marginBottom: "10px", lineHeight: 1.5 }}
+          >
+            <strong
+              style={{
+                color: "var(--ie-primary)",
+                display: "block",
+                marginBottom: "2px",
+              }}
+            >
+              Meaning:
+            </strong>
+            <span style={{ color: "#cbd5e1" }}>{explanation}</span>
+          </div>
+          <div
+            style={{ fontSize: "13px", marginBottom: "12px", lineHeight: 1.5 }}
+          >
+            <strong
+              style={{
+                color: "var(--ie-primary)",
+                display: "block",
+                marginBottom: "2px",
+              }}
+            >
+              Context:
+            </strong>
+            <span style={{ color: "#cbd5e1" }}>{context}</span>
+          </div>
+          <div
+            style={{
+              fontSize: "11px",
+              color: "var(--ie-muted)",
+              borderTop: "1px solid var(--ie-border)",
+              paddingTop: "8px",
+              margin: 0,
+            }}
+          >
             Raw value: {String(raw ?? "null")}
-          </p>
+          </div>
         </div>
       )}
-    </button>
+    </div>
   );
 }
 
