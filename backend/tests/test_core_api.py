@@ -381,3 +381,21 @@ def test_explicit_null_availability_remains_backward_compatible():
                      ml_outperformance_probability=None, score_status='insufficient_data',
                      unavailable_components=[], availability_status=None)
     assert item.model_dump()['availability_status'] is None
+
+
+@pytest.mark.parametrize('day', [date(2020, 3, 23), date(2025, 12, 2), date(2026, 1, 14), date(2026, 10, 2)])
+@pytest.mark.parametrize('metadata', [None, {'historical_exclusion': True, 'reason': 'before_model_cutoff'}])
+def test_missing_signal_never_infers_exclusion_from_date_or_unverified_metadata(setup, day, metadata):
+    client, engine, _ = setup
+    seed(engine)
+    with Session(engine) as session, session.begin():
+        session.add(research(day=day, information_date=day.replace(day=day.day - 1),
+                             feature_metadata=metadata))
+    item = client.get('/api/radar').json()['items'][0]
+    assert item['availability_status'] == 'not_scored'
+    assert item['score_status'] == 'insufficient_data'  # Legacy compatibility.
+    assert item['insider_edge_score'] is None
+    assert set(item) == set(RadarItem.model_fields)
+    company = client.get('/api/companies/AAPL').json()
+    assert company['latest_public_event_day'] == day.isoformat()
+    assert company['latest_signal'] is None

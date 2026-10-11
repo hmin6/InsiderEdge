@@ -123,3 +123,28 @@ Sequence: recover harness/artifacts → approve artifact/model-time/report contr
 → implement/test dry-run → approve bounded writes/PostgreSQL checks → controlled
 persistence → optional scheduler with locking, retries and alerts. Never score on
 GET/startup. Keep credentials server-side and exclude secrets from reports/logs.
+
+
+## Issue #81: truthful missing-Signal explanation
+
+The retained 80-company snapshot contains 55 latest events without matching
+Signals, 16 persisted insufficient-data Signals, and nine complete Signals.
+All 55 missing-Signal events have information dates on or before the documented
+last validation outcome, January 14, 2026. This is consistent with the documented
+deliberate eligibility exclusion in the ignored operational runner, but individual
+reasons remain unverified: original run membership, exclusion records, and model
+availability evidence have not been recovered. Dates and documentation alone do
+not establish why an individual Signal is absent.
+
+The current read path has no trustworthy event-level exclusion record or verified
+exclusion contract. `feature_metadata` is not an authenticated exclusion record.
+No new exclusion status is introduced. Missing exact latest-event Signals remain
+`not_scored` regardless of event year or unverified metadata claims. UI copy says
+that no persisted Signal is available and the reason has not been verified; it
+must not claim scoring never ran or that all five components were evaluated.
+Persisted complete, partial, and insufficient-data statuses remain unchanged.
+
+A future verified-exclusion display requires a separately reviewed evidence
+contract binding the event ID, original run, policy, and model availability to
+an explicit exclusion decision and its verification authority. This change adds
+no scoring runner, historical backfill, model training, or production access.
