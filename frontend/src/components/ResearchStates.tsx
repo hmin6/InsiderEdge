@@ -359,31 +359,31 @@ export function EventStudyEvidence({ data }: { data: StatisticsResponse }) {
 
 export function PredictionEvidence({ data }: { data: PredictionResponse }) {
   return (
-    <Panel title="ML Prediction">
+    <Panel title="ML Prediction" style={{ flex: 1 }}>
       {data.outperformance_probability === null ? (
         <StateMessage title="Model prediction unavailable">
           No model probability is available for this event.
         </StateMessage>
       ) : (
         <div className="ie-metric-grid">
-          <div
-            className="ie-metric-card"
-            title={`Raw probability: ${data.outperformance_probability}`}
-          >
-            <div className="ie-metric-label">Outperformance Probability</div>
-            <div className="ie-metric-value">
-              {numeric(data.outperformance_probability, true)}
-            </div>
-          </div>
-          <div className="ie-metric-card" title={`Engine: ${data.model_name}`}>
-            <div className="ie-metric-label">Model Engine</div>
-            <div
-              className="ie-metric-value"
-              style={{ fontSize: "14px", marginTop: "6px" }}
-            >
-              {data.model_name || "Unavailable"}
-            </div>
-          </div>
+          <MetricCard
+            label="Outperformance Probability"
+            value={numeric(data.outperformance_probability, true)}
+            raw={data.outperformance_probability}
+            explanation="The ML model's confidence that the stock will beat the benchmark over the next 30 days."
+            context=">50% leans bullish; >65% is a strong conviction signal."
+          />
+          <MetricCard
+            label="Model Engine"
+            value={
+              <div style={{ fontSize: "14px", marginTop: "6px" }}>
+                {data.model_name || "Unavailable"}
+              </div>
+            }
+            raw={data.model_name}
+            explanation="The specific algorithmic architecture used for scoring."
+            context="Logistic Regression or XGBoost, determined dynamically during backtesting."
+          />
         </div>
       )}
 
@@ -406,58 +406,48 @@ export function PredictionEvidence({ data }: { data: PredictionResponse }) {
             borderTop: "1px solid var(--ie-border)",
           }}
         >
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.metrics.roc_auc}`}
-          >
-            <div className="ie-metric-label">Held-Out ROC-AUC</div>
-            <div className="ie-metric-value">
-              {numeric(data.metrics.roc_auc)}
-            </div>
-          </div>
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.metrics.brier_score}`}
-          >
-            <div className="ie-metric-label">Brier Score</div>
-            <div className="ie-metric-value">
-              {numeric(data.metrics.brier_score)}
-            </div>
-          </div>
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.metrics.f1}`}
-          >
-            <div className="ie-metric-label">F1 Score</div>
-            <div className="ie-metric-value">{numeric(data.metrics.f1)}</div>
-          </div>
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.metrics.precision}`}
-          >
-            <div className="ie-metric-label">Precision</div>
-            <div className="ie-metric-value">
-              {numeric(data.metrics.precision, true)}
-            </div>
-          </div>
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.metrics.recall}`}
-          >
-            <div className="ie-metric-label">Recall</div>
-            <div className="ie-metric-value">
-              {numeric(data.metrics.recall, true)}
-            </div>
-          </div>
-          <div
-            className="ie-metric-card"
-            title={`Raw value: ${data.metrics.sample_count}`}
-          >
-            <div className="ie-metric-label">Sample Count</div>
-            <div className="ie-metric-value">
-              {formatCount(data.metrics.sample_count)}
-            </div>
-          </div>
+          <MetricCard
+            label="Held-Out ROC-AUC"
+            value={numeric(data.metrics.roc_auc)}
+            raw={data.metrics.roc_auc}
+            explanation="Area Under the Receiver Operating Characteristic Curve on unseen data."
+            context="0.5 is random guessing. 0.6+ shows a genuine predictive edge in finance."
+          />
+          <MetricCard
+            label="Brier Score"
+            value={numeric(data.metrics.brier_score)}
+            raw={data.metrics.brier_score}
+            explanation="Measures the accuracy and calibration of probabilistic predictions."
+            context="Lower is better. A score of 0.0 is perfect accuracy; 0.25 is random guessing."
+          />
+          <MetricCard
+            label="F1 Score"
+            value={numeric(data.metrics.f1)}
+            raw={data.metrics.f1}
+            explanation="The harmonic mean of Precision and Recall."
+            context="Balances the trade-off between false positives (bad trades) and false negatives (missed trades)."
+          />
+          <MetricCard
+            label="Precision"
+            value={numeric(data.metrics.precision, true)}
+            raw={data.metrics.precision}
+            explanation="When the model flags an event as outperforming, how often is it actually right?"
+            context="A crucial metric for capital preservation to minimize false signals."
+          />
+          <MetricCard
+            label="Recall"
+            value={numeric(data.metrics.recall, true)}
+            raw={data.metrics.recall}
+            explanation="Out of all actual outperforming events, how many did the model catch?"
+            context="High recall means fewer missed opportunities, but often comes at the cost of lower precision."
+          />
+          <MetricCard
+            label="Sample Count"
+            value={formatCount(data.metrics.sample_count)}
+            raw={data.metrics.sample_count}
+            explanation="The number of historical events used in the held-out validation set."
+            context="Larger sample sizes yield more trustworthy and durable metrics."
+          />
         </div>
       )}
     </Panel>
