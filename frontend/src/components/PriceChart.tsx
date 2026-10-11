@@ -244,12 +244,12 @@ export function PriceChart({ prices: rawPrices, transactions }: PriceChartProps)
 
   return (
     <div style={{ width: "100%" }}>
-      <ul className="ie-chart-legend-row" aria-label="Price chart legend" style={{ display: 'flex', flexWrap: 'wrap', flexDirection: 'column', alignItems: 'flex-start', gap: 0,
+      <ul className="ie-chart-legend-row" aria-label="Price chart legend" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px',
         listStyle: 'none', padding: 0, margin: '0 0 17px', fontSize: 12, color: 'var(--ie-text)' }}>
         <li><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="var(--ie-primary)" stroke="#fff" strokeWidth="2" /></svg>{' '}Qualifying purchase filing</li>
         <li><svg width="24" height="24" aria-hidden="true"><PriceHoverMarker cx={12} cy={12} /></svg>{' '}Active price point</li>
       </ul>
-    <div ref={setReadoutHost} className="ie-price-chart" style={{ width: "100%", height: 367, position: "relative" }}>
+    <div ref={setReadoutHost} className="ie-price-chart" style={{ width: "100%", height: 391, position: "relative" }}>
       <div style={{ position: "absolute", top: 0, right: 0, zIndex: 2, display: "flex", gap: 4 }}>
         <button type="button" className="ie-button" disabled={!markedPoints.length}
           onClick={() => setMarkedPoints([])}>Clear marks</button>
