@@ -300,10 +300,12 @@ export default function RadarPage() {
 
   useEffect(() => {
     const hasSeenRadarTour = localStorage.getItem("ie_has_seen_radar_tour");
-    if (!hasSeenRadarTour && data.length > 0) {
-      setRunTour(true);
+    if (!hasSeenRadarTour) {
+      // Small timeout ensures the DOM is fully painted before Joyride tries to attach tooltips
+      const timer = setTimeout(() => setRunTour(true), 500);
+      return () => clearTimeout(timer);
     }
-  }, [data.length]);
+  }, []);
 
   const handleJoyrideCallback = (joyrideData: any) => {
     const { status } = joyrideData;
@@ -572,7 +574,7 @@ export default function RadarPage() {
           tooltipComponent: MascotTooltip,
           beaconComponent: () => null,
           callback: handleJoyrideCallback,
-          styles: { overlay: { zIndex: 10000 } }
+          styles: { overlay: { zIndex: 10000 } },
         } as any)}
       />
 

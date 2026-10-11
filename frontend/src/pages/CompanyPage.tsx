@@ -221,10 +221,11 @@ function CompanyResearch({ ticker }: { ticker: string }) {
   // Automatically start the tour the first time the page loads if data is successful
   useEffect(() => {
     const hasSeenTour = localStorage.getItem("ie_has_seen_tour");
-    if (!hasSeenTour && company.data) {
-      setRunTour(true);
+    if (!hasSeenTour) {
+      const timer = setTimeout(() => setRunTour(true), 500);
+      return () => clearTimeout(timer);
     }
-  }, [company.data]);
+  }, []);
 
   const handleJoyrideCallback = (data: any) => {
     const { status } = data;
