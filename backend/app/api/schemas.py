@@ -17,6 +17,8 @@ class QuantitativeCoverage(ResponseModel):
     purchase_count: int | None
     purchase_value: Annotated[float, Field(ge=0)] | None
     information_date: date
+    estimated_activity_index: Score | None = None
+    estimated_activity_method: Literal['fixed_activity_v1'] | None = None
     partial_index: Score | None = None
     imputed_components: list[str] = Field(default_factory=list)
     imputation_method: str | None = None

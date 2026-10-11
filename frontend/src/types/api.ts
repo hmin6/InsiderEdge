@@ -3,6 +3,8 @@ export type QuantitativeCoverageData = {
   purchase_count: number | null;
   purchase_value: number | null;
   information_date: string;
+  estimated_activity_index?: number | null;
+  estimated_activity_method?: "fixed_activity_v1" | null;
   partial_index: number | null;
   imputed_components?: string[];
   imputation_method?: string | null;

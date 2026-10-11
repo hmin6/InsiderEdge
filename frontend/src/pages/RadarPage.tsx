@@ -1,4 +1,4 @@
-import { QuantitativeCoverage } from "../components/QuantitativeCoverage";
+import { ResearchPriorityValue } from "../components/ResearchPriorityValue";
 import { SignalAvailability } from "../components/SignalAvailability";
 import {
   useEffect,
@@ -800,7 +800,8 @@ export default function RadarPage() {
         </div>
         <p className="ie-description ie-radar-description">
           High score indicates research priority, not an investment
-          recommendation.
+          recommendation. Complete, Provisional, and Estimated Activity values are
+          not directly comparable; sorting uses canonical scores only.
         </p>
 
         {usingResearchMocks && (
@@ -874,8 +875,7 @@ export default function RadarPage() {
                     {numeric(item.ml_outperformance_probability, true)}
                   </td>
                   <td className="ie-number ie-priority-column">
-                    <strong>{numeric(item.insider_edge_score)}</strong>
-                    {(item.insider_edge_score === null || item.quantitative_coverage?.status === 'provisional') && <QuantitativeCoverage data={item.quantitative_coverage} />}
+                    <ResearchPriorityValue score={item.insider_edge_score} status={item.score_status} coverage={item.quantitative_coverage} />
                   </td>
                 </tr>
               ))}

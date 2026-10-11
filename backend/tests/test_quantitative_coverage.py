@@ -182,3 +182,45 @@ def test_weight_threshold_and_zero_boundary():
     row.unavailable_components = ['M', 'D']
     result = quantitative_coverage(session, event, row)
     assert result['partial_index'] == 0 and result['coverage_weight'] == pytest.approx(.55)
+
+
+@pytest.mark.parametrize('count,value,expected', [(0, 0, 0), (1, 0, 6), (5, 99999999, 100),
+    (10, 100000000, 100), (2, 9999, 47), (1, 999999, 58.5)])
+def test_fixed_activity_formula(count, value, expected):
+    from app.services.quantitative_coverage import estimated_activity_index
+    assert estimated_activity_index(count, value) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize('count,value', [(None, 1), (1, None), (-1, 1), (1, -1),
+    (True, 1), (1, True), (1.5, 1), (1, '100'), (1, float('nan')),
+    (1, Decimal('Infinity')), (1, Decimal('-1e-999'))])
+def test_fixed_activity_rejects_invalid(count, value):
+    from app.services.quantitative_coverage import estimated_activity_index
+    assert estimated_activity_index(count, value) is None
+
+
+def test_estimate_requires_validated_source_value_and_preserves_canonical_fields():
+    session, event, row = inputs()
+    result = quantitative_coverage(session, event, None)
+    assert result['estimated_activity_index'] == 6
+    assert result['partial_index'] is None and 'insider_edge_score' not in result
+    row.document_type = '4/A'
+    assert quantitative_coverage(session, event, None)['estimated_activity_index'] is None
+    row.document_type = '4'
+    row.transaction_value = Decimal('1')  # contradicts aggregate, not a new observation
+    assert quantitative_coverage(session, event, None)['estimated_activity_index'] is None
+
+
+def test_estimate_independent_of_display_population():
+    session, event, _ = inputs()
+    first = quantitative_coverage(session, event, None)
+    assert quantitative_coverage(session, event, None)['estimated_activity_index'] == first['estimated_activity_index']
+
+
+def test_estimated_fields_survive_api_serialization():
+    from app.api.schemas import QuantitativeCoverage
+    session, event, _ = inputs()
+    payload = QuantitativeCoverage.model_validate(quantitative_coverage(session, event, None)).model_dump(mode='json')
+    assert payload['estimated_activity_index'] == 6
+    assert payload['estimated_activity_method'] == 'fixed_activity_v1'
+    assert payload['partial_index'] is None

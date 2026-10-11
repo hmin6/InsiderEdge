@@ -380,3 +380,22 @@ Disclosure: "Calculated using incomplete and/or imputed inputs. This estimate ha
 not been independently validated and is less reliable than a complete InsiderEdge
 Score." Provisional indices are not calibrated predictions or directly comparable
 to full IES and never enter canonical sorting or persistence.
+
+### Issue #81 Estimated Activity Index (fixed_activity_v1)
+
+Optional read-only `quantitative_coverage.estimated_activity_index` (0–100 or null)
+and `estimated_activity_method` (`fixed_activity_v1`) are separate from canonical
+IES, provisional indices, statuses, persistence and sorting.
+
+For lineage-checked qualifying Form 4 NONDERIV_TRANS purchases only:
+`100 * (0.70 * min(1, log10(1 + purchase_value_usd) / 8) + 0.30 * min(1, qualifying_purchase_count / 5))`, clamped to [0,100].
+Require both nonnegative finite USD value and nonnegative integer transaction count;
+retain legitimate zero, reject missing/inconsistent source aggregates. No imputation.
+The $100 million and five-transaction saturation anchors and 70/30 weights are
+team-authorized product heuristics, not fitted or historically validated parameters.
+Precisely, the log expression reaches saturation at $99,999,999 due to its +1.
+This is not a probability, return forecast or validated IES; index types are not
+directly comparable. No normalization against currently displayed companies occurs.
+Complete canonical values take precedence, then eligible provisional values, then
+this estimate, otherwise a dash. Company details disclose evidence and methodology
+in an expandable section. Source lineage checks are not immutable provenance proof.
