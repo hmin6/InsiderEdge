@@ -12,6 +12,24 @@ FIELDS = {'A': 'anomaly_score', 'C': 'activity_score', 'M': 'model_probability',
           'S': 'statistical_score', 'D': 'dislocation_score'}
 
 
+def estimated_activity_index(purchase_count, purchase_value):
+    """Product heuristic, not calibrated inference; callers must validate lineage."""
+    if isinstance(purchase_count, bool) or not isinstance(purchase_count, int) or purchase_count < 0:
+        return None
+    if isinstance(purchase_value, bool) or not isinstance(purchase_value, (int, float, Decimal)):
+        return None
+    try:
+        value = Decimal(str(purchase_value))
+        if not value.is_finite() or value < 0:
+            return None
+        # Saturate before float conversion, including very large valid Decimals.
+        value_component = 1.0 if value >= Decimal('99999999') else math.log10(1 + float(value)) / 8
+        count_component = min(5, purchase_count) / 5
+        return max(0.0, min(100.0, 100 * (.70 * value_component + .30 * count_component)))
+    except (InvalidOperation, OverflowError, ValueError):
+        return None
+
+
 def _known_chronology(value, cutoff):
     """Reject known source/outcome availability violations; absence proves nothing."""
     if isinstance(value, dict):
@@ -137,6 +155,7 @@ def quantitative_coverage(session, event, signal):
         return None
     result = dict(status='unavailable', purchase_count=None, purchase_value=None,
                   information_date=event.information_date, partial_index=None,
+                  estimated_activity_index=None, estimated_activity_method='fixed_activity_v1',
                   coverage_weight=0.0, available_components=[], missing_components=list('ACMSD'),
                   calculation_method='observed_weight_renormalization',
                   reasons=[], imputed_components=[], imputation_method=None,
@@ -181,5 +200,6 @@ def quantitative_coverage(session, event, signal):
         result['purchase_value'] = total
     except (InvalidOperation, ValueError, OverflowError):
         result['reasons'].append('purchase_value_missing_or_inconsistent')
+    result['estimated_activity_index'] = estimated_activity_index(result['purchase_count'], result['purchase_value'])
     result['reasons'].extend(['canonical_buyer_mapping_not_retained', 'point_in_time_price_snapshot_not_retained'])
     return result

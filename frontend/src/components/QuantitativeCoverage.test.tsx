@@ -15,7 +15,7 @@ const data: QuantitativeCoverageData = {
 test('descriptive data displays zero, cutoff and provenance without a composite', () => {
   const html = renderToStaticMarkup(<QuantitativeCoverage data={data} />);
   for (const text of ['Available quantitative data', 'Qualifying purchases: 1', '$0.00',
-    '2024-01-02', 'not an InsiderEdge Score or ML prediction', 'Provisional Index unavailable',
+    '2024-01-02', 'not an InsiderEdge Score or ML prediction', 'Score methodology and evidence',
     'not independently authenticated']) assert.ok(html.includes(text));
 });
 test('unavailable does not fabricate metrics', () => {
@@ -40,4 +40,10 @@ test('provisional index has separate name, coverage and unvalidated disclosure',
   for (const text of ['Provisional Index', '42.86', '70.00%', 'C, S', 'less reliable',
     'Not directly comparable', 'No components were imputed']) assert.ok(html.includes(text));
   assert.doesNotMatch(html, /calibrated probability/);
+});
+
+test('estimated methodology is expandable and discloses fixed heuristic assumptions', () => {
+  const html = renderToStaticMarkup(<QuantitativeCoverage data={{...data, estimated_activity_index: 6}} />);
+  for (const text of ['<details', 'Score methodology and evidence', '6.00', '$100 million', 'five transactions', '70%/30%', 'not a validated historical distribution', 'Form 4 NONDERIV_TRANS']) assert.ok(html.includes(text));
+  assert.doesNotMatch(html, /<details open/);
 });
