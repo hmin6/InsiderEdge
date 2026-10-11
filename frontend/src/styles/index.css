@@ -120,6 +120,19 @@
 .ie-chart-region {
   min-height: 400px;
 }
+.ie-price-chart-readout {
+  position: absolute;
+  top: -12px;
+  left: 0;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  color: var(--ie-text);
+}
+.ie-price-chart-readout strong { font-size: 22px; font-weight: 650; }
+.ie-price-chart-readout span { font-size: 12px; color: var(--ie-muted); }
+
 .ie-reserved-panel,
 .ie-radar-region {
   min-height: 210px;
