@@ -224,3 +224,15 @@ def test_estimated_fields_survive_api_serialization():
     assert payload['estimated_activity_index'] == 6
     assert payload['estimated_activity_method'] == 'fixed_activity_v1'
     assert payload['partial_index'] is None
+
+
+@pytest.mark.parametrize('ticker,count,value,expected', [
+    ('AMAT', 2, Decimal('6865081.79'), 71.8206505663589),
+    ('AMD', 1, Decimal('999328.00'), 58.497449292665074),
+])
+def test_screenshot_observed_activity_examples(ticker, count, value, expected):
+    """User-supplied screenshot inputs, not independently verified production records."""
+    from app.services.quantitative_coverage import estimated_activity_index
+    actual = estimated_activity_index(count, value)
+    assert actual == pytest.approx(expected, rel=0, abs=1e-10), ticker
+    assert round(actual, 2) == (71.82 if ticker == 'AMAT' else 58.50)
