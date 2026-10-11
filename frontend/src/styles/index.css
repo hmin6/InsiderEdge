@@ -630,9 +630,12 @@ h3 {
 }
 .ie-radar-table .ie-radar-section-row th {
   text-align: left;
-  background: var(--ie-panel);
+  background: #0f172a;
   color: var(--ie-text);
   border-bottom: 1px solid var(--ie-border);
+}
+:root[data-theme="light"] .ie-radar-table .ie-radar-section-row th {
+  background: #cbd5e1;
 }
 .ie-radar-search {
   margin: var(--ie-space-5) 0;
