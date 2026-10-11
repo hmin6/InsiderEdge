@@ -533,19 +533,18 @@ export default function RadarPage() {
       }
     >
       <ReactJoyride
-        key={tourKey}
-        steps={tourSteps}
-        run={runTour}
-        continuous={true}
-        showSkipButton={true}
-        tooltipComponent={MascotTooltip}
-        callback={handleJoyrideCallback}
-        disableScrollParentFix={true}
-        options={{
-          zIndex: 10000,
-          primaryColor: "var(--ie-primary)",
-          skipBeacon: true,
-        }}
+        {...({
+          key: tourKey,
+          steps: tourSteps,
+          run: runTour,
+          continuous: true,
+          tooltipComponent: MascotTooltip,
+          beaconComponent: () => null,
+          callback: handleJoyrideCallback,
+          styles: {
+            overlay: { zIndex: 10000 },
+          },
+        } as any)}
       />
 
       <PageContainer className="ie-reveal">
