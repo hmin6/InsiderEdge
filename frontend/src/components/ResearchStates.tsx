@@ -282,79 +282,66 @@ export function StatisticsEvidence({ data }: { data: StatisticsResponse }) {
 export function EventStudyEvidence({ data }: { data: StatisticsResponse }) {
   const v = data.statistical_validation;
   return (
-    <Panel title="Event Study & Statistical Evidence">
+    <Panel title="Event Study & Statistical Evidence" style={{ flex: 1 }}>
       <div className="ie-metric-grid">
-        <div
-          className="ie-metric-card"
-          title={`Raw value: ${data.event_study.car5}`}
-        >
-          <div className="ie-metric-label">CAR5</div>
-          <div className="ie-metric-value">
-            {numeric(data.event_study.car5, true)}
-          </div>
-        </div>
-        <div
-          className="ie-metric-card"
-          title={`Raw value: ${data.event_study.car30}`}
-        >
-          <div className="ie-metric-label">CAR30</div>
-          <div className="ie-metric-value">
-            {numeric(data.event_study.car30, true)}
-          </div>
-        </div>
-        <div
-          className="ie-metric-card"
-          title={`Raw value: ${data.event_study.car90}`}
-        >
-          <div className="ie-metric-label">CAR90</div>
-          <div className="ie-metric-value">
-            {numeric(data.event_study.car90, true)}
-          </div>
-        </div>
+        <MetricCard
+          label="CAR5"
+          value={numeric(data.event_study.car5, true)}
+          raw={data.event_study.car5}
+          explanation="Cumulative Abnormal Return over 5 days. The stock's actual return minus the market benchmark's expected return."
+          context="Positive numbers mean the stock outperformed the market post-event."
+        />
+        <MetricCard
+          label="CAR30"
+          value={numeric(data.event_study.car30, true)}
+          raw={data.event_study.car30}
+          explanation="Cumulative Abnormal Return over 30 days."
+          context="Used as the primary target variable for the machine learning models."
+        />
+        <MetricCard
+          label="CAR90"
+          value={numeric(data.event_study.car90, true)}
+          raw={data.event_study.car90}
+          explanation="Cumulative Abnormal Return over 90 days."
+          context="Measures the long-term sustained edge of the event."
+        />
       </div>
       <div className="ie-metric-grid">
-        <div
-          className="ie-metric-card"
-          title={`Raw value: ${v.comparable_event_count}`}
-        >
-          <div className="ie-metric-label">Comparable Events</div>
-          <div className="ie-metric-value">
-            {formatCount(v.comparable_event_count)}
-          </div>
-        </div>
-        <div className="ie-metric-card" title={`Raw value: ${v.mean_car30}`}>
-          <div className="ie-metric-label">Mean CAR30</div>
-          <div className="ie-metric-value">{numeric(v.mean_car30, true)}</div>
-        </div>
-        <div
-          className="ie-metric-card"
-          title={`Raw value: ${v.randomization_p_value}`}
-        >
-          <div className="ie-metric-label">P-Value</div>
-          <div className="ie-metric-value">
-            {formatPValue(v.randomization_p_value)}
-          </div>
-        </div>
-        <div
-          className="ie-metric-card"
-          title={`Raw value: ${v.statistical_score}`}
-        >
-          <div className="ie-metric-label">Statistical Score</div>
-          <div className="ie-metric-value">{numeric(v.statistical_score)}</div>
-        </div>
+        <MetricCard
+          label="Comparable Events"
+          value={formatCount(v.comparable_event_count)}
+          raw={v.comparable_event_count}
+          explanation="Historical events with identical sector and role profiles used for backtesting."
+          context="10+ is required for statistical validity."
+        />
+        <MetricCard
+          label="Mean CAR30"
+          value={numeric(v.mean_car30, true)}
+          raw={v.mean_car30}
+          explanation="The average 30-day abnormal return of the historical comparable cohort."
+          context="Shows the historical track record of this specific setup."
+        />
+        <MetricCard
+          label="P-Value"
+          value={formatPValue(v.randomization_p_value)}
+          raw={v.randomization_p_value}
+          explanation="The probability that the Mean CAR30 was achieved purely by random chance."
+          context="Below 0.05 is generally considered statistically significant."
+        />
+        <MetricCard
+          label="Statistical Score"
+          value={numeric(v.statistical_score)}
+          raw={v.statistical_score}
+          explanation="A 0-100 blend of bootstrap confidence intervals and p-value support."
+          context="Higher scores indicate a highly repeatable, non-random historical edge."
+        />
       </div>
 
       {(data.event_study.car30 === null || data.event_study.car90 === null) && (
         <p className="ie-muted" style={{ marginTop: "16px" }}>
-          Unavailable horizons may need more completed trading sessions or
-          estimation history. Future CAR is not yet known.
+          Unavailable horizons may need more completed trading sessions. Future
+          CAR is not yet known.
         </p>
-      )}
-      {v.statistical_score === null && (
-        <StateMessage title="Combined statistical score unavailable">
-          Bootstrap and randomization evidence have separate availability. Any
-          available comparable-event results remain visible above.
-        </StateMessage>
       )}
       <p className="ie-muted" style={{ marginTop: "16px" }}>
         95% bootstrap interval:{" "}
@@ -363,12 +350,13 @@ export function EventStudyEvidence({ data }: { data: StatisticsResponse }) {
           : "Unavailable"}
       </p>
       <p className="ie-muted" style={{ marginTop: "4px" }}>
-        Cohort: {v.cohort_definition || "Unavailable"} · Study Status:{" "}
-        {data.event_study.status} · Validation Status: {v.status}
+        Cohort: {v.cohort_definition || "Unavailable"} · Validation Status:{" "}
+        {v.status}
       </p>
     </Panel>
   );
 }
+
 export function PredictionEvidence({ data }: { data: PredictionResponse }) {
   return (
     <Panel title="ML Prediction">
