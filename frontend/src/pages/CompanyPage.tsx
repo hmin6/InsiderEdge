@@ -26,7 +26,6 @@ import {
   PredictionEvidence,
 } from "../components";
 
-// --- START OF TOUR GUIDE IMPLEMENTATION ---
 const EdgeMascot = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -180,13 +179,13 @@ const tourSteps: any[] = [
   },
 ];
 
-// --- END OF TOUR GUIDE IMPLEMENTATION ---
 export default function CompanyPage() {
   const { ticker = "" } = useParams();
   return (
     <CompanyResearch key={ticker.toUpperCase()} ticker={ticker.toUpperCase()} />
   );
 }
+
 function CompanyResearch({ ticker }: { ticker: string }) {
   const company = useResource(
     ticker,
@@ -221,7 +220,6 @@ function CompanyResearch({ ticker }: { ticker: string }) {
     ),
   );
 
-  // --- TOUR STATE ---
   const [runTour, setRunTour] = useState(false);
   const [tourKey, setTourKey] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
@@ -232,7 +230,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
 
   useEffect(() => {
     if (company.data) {
-      const hasSeenTour = localStorage.getItem("ie_has_seen_tour");
+      const hasSeenTour = localStorage.getItem("ie_has_seen_company_tour_v2");
       if (!hasSeenTour) {
         const timer = setTimeout(() => setRunTour(true), 800);
         return () => clearTimeout(timer);
@@ -244,7 +242,7 @@ function CompanyResearch({ ticker }: { ticker: string }) {
     const { status } = data;
     if (["finished", "skipped"].includes(status)) {
       setRunTour(false);
-      localStorage.setItem("ie_has_seen_tour", "true");
+      localStorage.setItem("ie_has_seen_company_tour_v2", "true");
     }
   };
 
@@ -264,14 +262,13 @@ function CompanyResearch({ ticker }: { ticker: string }) {
   return (
     <AppShell navigation={[]}>
       {isMounted && (
-        // @ts-ignore - Bypass strict joyride v3 type mismatches
+        /* @ts-ignore - Bypass strict joyride v3 type mismatches */
         <Joyride
           key={tourKey}
           {...({
             steps: tourSteps,
             run: runTour,
             continuous: true,
-            disableBeacon: true, 
             showSkipButton: true,
             tooltipComponent: MascotTooltip,
             callback: handleJoyrideCallback,

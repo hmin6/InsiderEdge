@@ -22,7 +22,6 @@ import {
   StateMessage,
 } from "../components";
 
-// --- START OF TOUR GUIDE IMPLEMENTATION ---
 const EdgeMascot = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -161,7 +160,6 @@ const tourSteps: any[] = [
     disableBeacon: true,
   },
 ];
-// --- END OF TOUR GUIDE IMPLEMENTATION ---
 
 type SortField =
   | "default"
@@ -289,12 +287,10 @@ export default function RadarPage() {
   const sortMenu = useRef<HTMLDivElement>(null);
   const resource = useResource("radar", fetchRadar);
 
-  // --- TOUR STATE ---
   const [runTour, setRunTour] = useState(false);
   const [tourKey, setTourKey] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Defeat React 18 StrictMode double-mounting
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -312,9 +308,8 @@ export default function RadarPage() {
 
   useEffect(() => {
     if (data.length > 0) {
-      const hasSeenRadarTour = localStorage.getItem("ie_has_seen_radar_tour");
+      const hasSeenRadarTour = localStorage.getItem("ie_has_seen_radar_tour_v2");
       if (!hasSeenRadarTour) {
-        // Generous timeout ensures DOM is fully painted
         const timer = setTimeout(() => setRunTour(true), 800);
         return () => clearTimeout(timer);
       }
@@ -325,7 +320,7 @@ export default function RadarPage() {
     const { status } = joyrideData;
     if (["finished", "skipped"].includes(status)) {
       setRunTour(false);
-      localStorage.setItem("ie_has_seen_radar_tour", "true");
+      localStorage.setItem("ie_has_seen_radar_tour_v2", "true");
     }
   };
 
@@ -579,14 +574,13 @@ export default function RadarPage() {
       }
     >
       {isMounted && (
-        // @ts-ignore - Bypass strict joyride v3 type mismatches
+        /* @ts-ignore - Bypass strict joyride v3 type mismatches */
         <Joyride
           key={tourKey}
           {...({
             steps: tourSteps,
             run: runTour,
             continuous: true,
-            disableBeacon: true, 
             showSkipButton: true,
             tooltipComponent: MascotTooltip,
             callback: handleJoyrideCallback,
