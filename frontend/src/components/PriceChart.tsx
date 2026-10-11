@@ -159,7 +159,7 @@ function InspectionLayer({ prices, allPrices, readoutHost, onZoom, markedPoints,
               }
             }}>
             <tspan x={labelX}>{formatCurrency(point.analysis_price)}</tspan>
-            <tspan x={labelX} dy={13} fill={selected ? '#f97316' : 'var(--ie-muted)'}>{point.date}</tspan>
+            <tspan x={labelX} dy={18} fill={selected ? '#f97316' : 'var(--ie-muted)'}>{point.date}</tspan>
           </text>}
           <line x1={x} x2={x} y1={plot.y} y2={plot.y + plot.height}
             stroke={selected ? '#f97316' : active ? 'var(--ie-text)' : 'var(--ie-primary)'}
