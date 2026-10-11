@@ -132,7 +132,7 @@ const tourSteps: any[] = [
     target: "body",
     placement: "center",
     content:
-      "Welcome to our Hackathon Project: InsiderEdge! This platform identifies institutional-grade quantitative equity research by detecting anomalous insider trading clusters.",
+      "Welcome to InsiderEdge! This platform identifies institutional-grade quantitative equity research by detecting anomalous insider trading clusters.",
     disableBeacon: true,
   },
   {
