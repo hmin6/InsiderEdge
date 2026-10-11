@@ -129,8 +129,8 @@ const MascotTooltip = ({
 
 const tourSteps: any[] = [
   {
-    target: ".ie-product-header",
-    placement: "bottom",
+    target: "body",      
+    placement: "center",
     content:
       "Welcome to the Company Research Profile! Let me show you how to read this institutional-grade quantitative research.",
     disableBeacon: true,
@@ -262,16 +262,14 @@ function CompanyResearch({ ticker }: { ticker: string }) {
   return (
     <AppShell navigation={[]}>
       {isMounted && (
-        /* @ts-ignore - Bypass strict joyride v3 type mismatches */
         <Joyride
-          key={tourKey}
           {...({
+            key: tourKey,
             steps: tourSteps,
             run: runTour,
             continuous: true,
             disableBeacon: true,
             showSkipButton: true,
-            beaconComponent: () => null,
             tooltipComponent: MascotTooltip,
             callback: handleJoyrideCallback,
             disableScrollParentFix: true,

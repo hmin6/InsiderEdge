@@ -128,38 +128,52 @@ const MascotTooltip = ({
 
 const tourSteps: any[] = [
   {
-    target: ".ie-radar-header-bar",
-    placement: "bottom",
+    target: "body", 
+    placement: "center", 
     content:
-      "Welcome to our Hackathon Project: InsiderEdge! This platform identifies institutional-grade quantitative equity research by detecting anomalous insider trading clusters.",
+      "Welcome to the Company Research Profile! Let me show you how to read this institutional-grade quantitative research.",
     disableBeacon: true,
   },
   {
-    target: ".ie-radar-table",
+    target: ".tour-score-panel",
+    placement: "bottom",
+    content:
+      "This is the overall InsiderEdge Score. It ranks the research priority of this event from 0-100 based on a blend of the components below.",
+    disableBeacon: true,
+  },
+  {
+    target: ".tour-activity-panel",
+    placement: "right",
+    content:
+      "Anomaly & Activity measures how unusual this insider buying is. We look at Mahalanobis distances and 30-day clustering to detect true conviction.",
+    disableBeacon: true,
+  },
+  {
+    target: ".tour-dislocation-panel",
+    placement: "right",
+    content:
+      "Market Dislocation evaluates if the stock is being bought into severe weakness or sector-wide drops, signaling a value setup.",
+    disableBeacon: true,
+  },
+  {
+    target: ".tour-prediction-panel",
+    placement: "left",
+    content:
+      "Our Machine Learning engine (XGBoost or Logistic Regression) predicts the exact probability that this stock will beat the benchmark over the next 30 days.",
+    disableBeacon: true,
+  },
+  {
+    target: ".tour-event-study-panel",
+    placement: "left",
+    content:
+      "The Event Study compares this exact setup against historical comparables, proving the edge using p-values, bootstrap intervals, and Mean CAR30.",
+    disableBeacon: true,
+  },
+  {
+    target: ".tour-ai-panel",
     placement: "top",
     content:
-      "Here is our Market Radar queue. It constantly scans recent SEC Form 4 filings and ranks them based on Mahalanobis distance, clustered buying, and XGBoost machine learning predictions.",
-    disableBeacon: true,
-  },
-  {
-    target: ".ie-radar-sort",
-    placement: "bottom",
-    content:
-      "You can sort the generated signals by different quantitative components. Try sorting by 'Anomaly' or 'Market Dislocation'!",
-    disableBeacon: true,
-  },
-  {
-    target: ".ie-radar-quick-search",
-    placement: "bottom",
-    content:
-      "If you want to evaluate a specific stock, type its ticker here. We normalize the SEC data and calculate the event study on the fly.",
-    disableBeacon: true,
-  },
-  {
-    target: ".ie-radar-table tbody tr:first-child",
-    placement: "bottom",
-    content:
-      "Click on any company row here to dive into the deep quantitative metrics, our ML evaluation, and the Gemini AI explanation for this exact event!",
+      "Finally, our AI Research Assistant uses Gemini and Snowflake Cortex to contextualize the filings, and ElevenLabs to generate an audio analyst brief!",
     disableBeacon: true,
   },
 ];
@@ -175,7 +189,11 @@ type SortField =
   | "model_prob"
   | "priority";
 type PriorityClass = "Complete" | "Estimated Activity" | "Provisional";
-const priorityClasses: PriorityClass[] = ["Complete", "Estimated Activity", "Provisional"];
+const priorityClasses: PriorityClass[] = [
+  "Complete",
+  "Estimated Activity",
+  "Provisional",
+];
 type SortDirection = "none" | "asc" | "desc";
 const sortOptions: { key: Exclude<SortField, "default">; label: string }[] = [
   { key: "status", label: "Status" },
@@ -203,7 +221,12 @@ function calculateFlyoutCoords(
   return {
     left: Math.max(
       edge,
-      Math.min(preferLeft ? (rect.left ?? rect.right) - width - 4 : rect.right + rightGap, viewportWidth - width - edge),
+      Math.min(
+        preferLeft
+          ? (rect.left ?? rect.right) - width - 4
+          : rect.right + rightGap,
+        viewportWidth - width - edge,
+      ),
     ),
     top: Math.max(edge, Math.min(rect.top, viewportHeight - height - edge)),
   };
@@ -226,9 +249,9 @@ function directionOptions(
           { direction: "desc" as const, label: "Z → A (Descending)" },
         ]
       : [
-            { direction: "desc" as const, label: "High → Low (Descending)" },
-            { direction: "asc" as const, label: "Low → High (Ascending)" },
-          ]),
+          { direction: "desc" as const, label: "High → Low (Descending)" },
+          { direction: "asc" as const, label: "Low → High (Ascending)" },
+        ]),
   ];
 }
 
@@ -250,10 +273,19 @@ function compareRadar(
   if (key === "default" || direction === "none") return 0;
   const multiplier = direction === "asc" ? 1 : -1;
   if (key === "priority") {
-    const left = selectResearchPriority(a.insider_edge_score, a.score_status, a.quantitative_coverage);
-    const right = selectResearchPriority(b.insider_edge_score, b.score_status, b.quantitative_coverage);
+    const left = selectResearchPriority(
+      a.insider_edge_score,
+      a.score_status,
+      a.quantitative_coverage,
+    );
+    const right = selectResearchPriority(
+      b.insider_edge_score,
+      b.score_status,
+      b.quantitative_coverage,
+    );
     const classes = ["Complete", "Provisional", "Estimated Activity"];
-    const bucket = (label?: string) => label ? classes.indexOf(label) : classes.length;
+    const bucket = (label?: string) =>
+      label ? classes.indexOf(label) : classes.length;
     const partition = bucket(left?.label) - bucket(right?.label);
     if (partition) return partition;
     return left && right ? multiplier * (left.value - right.value) : 0;
@@ -314,19 +346,32 @@ export default function RadarPage() {
     )
     .sort((a, b) => compareRadar(a, b, sort.field, sort.direction));
   const tableRows: { item?: RadarItem; section?: string }[] = statusSections
-    ? [...priorityClasses.filter(category => category !== "Estimated Activity"), "Estimated Activity", "Unavailable"]
-      .flatMap(category => {
-        const rows = filteredData.filter(item => (selectResearchPriority(item.insider_edge_score,
-          item.score_status, item.quantitative_coverage)?.label ?? "Unavailable") === category);
-        return category === "Unavailable" && !rows.length ? []
-          : [{ section: category }, ...rows.map(item => ({ item }))];
+    ? [
+        ...priorityClasses.filter(
+          (category) => category !== "Estimated Activity",
+        ),
+        "Estimated Activity",
+        "Unavailable",
+      ].flatMap((category) => {
+        const rows = filteredData.filter(
+          (item) =>
+            (selectResearchPriority(
+              item.insider_edge_score,
+              item.score_status,
+              item.quantitative_coverage,
+            )?.label ?? "Unavailable") === category,
+        );
+        return category === "Unavailable" && !rows.length
+          ? []
+          : [{ section: category }, ...rows.map((item) => ({ item }))];
       })
-    : filteredData.map(item => ({ item }));
-
+    : filteredData.map((item) => ({ item }));
 
   useEffect(() => {
     if (data.length > 0) {
-      const hasSeenRadarTour = localStorage.getItem("ie_has_seen_radar_tour_v2");
+      const hasSeenRadarTour = localStorage.getItem(
+        "ie_has_seen_radar_tour_v2",
+      );
       if (!hasSeenRadarTour) {
         const timer = setTimeout(() => setRunTour(true), 800);
         return () => clearTimeout(timer);
@@ -426,7 +471,15 @@ export default function RadarPage() {
     clearTimer();
     const bounds = row.getBoundingClientRect();
     setFlyoutPosition(
-      calculateFlyoutCoords(bounds, window.innerWidth, window.innerHeight, 220, 160, -10, false),
+      calculateFlyoutCoords(
+        bounds,
+        window.innerWidth,
+        window.innerHeight,
+        220,
+        160,
+        -10,
+        false,
+      ),
     );
     focusFlyout.current = focus;
     setOpenField(field);
@@ -535,7 +588,9 @@ export default function RadarPage() {
     }
     const options = Array.from(
       submenu
-        ? submenu.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"], [role="menuitem"]')
+        ? submenu.querySelectorAll<HTMLButtonElement>(
+            '[role="menuitemradio"], [role="menuitem"]',
+          )
         : sortMenu.current?.querySelectorAll<HTMLButtonElement>(
             "[data-sort-trigger], [data-sort-reset]",
           ) || [],
@@ -602,16 +657,14 @@ export default function RadarPage() {
       }
     >
       {isMounted && (
-        /* @ts-ignore - Bypass strict joyride v3 type mismatches */
         <Joyride
-          key={tourKey}
           {...({
+            key: tourKey,
             steps: tourSteps,
             run: runTour,
             continuous: true,
-            disableBeacon: true, 
+            disableBeacon: true,
             showSkipButton: true,
-            beaconComponent: () => null, 
             tooltipComponent: MascotTooltip,
             callback: handleJoyrideCallback,
             disableScrollParentFix: true,
@@ -707,7 +760,11 @@ export default function RadarPage() {
                               clearTimer();
                               return;
                             }
-                            if (option.key === "status") { clearTimer(); setOpenField(null); return; }
+                            if (option.key === "status") {
+                              clearTimer();
+                              setOpenField(null);
+                              return;
+                            }
                             openFlyout(option.key, event.currentTarget);
                           }}
                         >
@@ -717,27 +774,44 @@ export default function RadarPage() {
                             tabIndex={-1}
                             id={`sort-field-${option.key}`}
                             data-sort-trigger={option.key}
-                            aria-haspopup={option.key === "status" ? undefined : "menu"}
+                            aria-haspopup={
+                              option.key === "status" ? undefined : "menu"
+                            }
                             aria-expanded={openField === option.key}
                             aria-controls={
                               openField === option.key
                                 ? `sort-options-${option.key}`
                                 : undefined
                             }
-                            data-active={openField === option.key || (option.key === "status" && statusSections)}
+                            data-active={
+                              openField === option.key ||
+                              (option.key === "status" && statusSections)
+                            }
                             onFocus={() => {
                               if (openField !== option.key) setOpenField(null);
                             }}
                             onClick={(event) => {
                               if (option.key === "status") {
                                 setStatusSections(!statusSections);
-                                setSort({ field: statusSections ? "default" : "status", direction: "none" });
-                                closeSort(); sortTrigger.current?.focus(); return;
+                                setSort({
+                                  field: statusSections ? "default" : "status",
+                                  direction: "none",
+                                });
+                                closeSort();
+                                sortTrigger.current?.focus();
+                                return;
                               }
-                              openFlyout(option.key, event.currentTarget.parentElement!, true);
+                              openFlyout(
+                                option.key,
+                                event.currentTarget.parentElement!,
+                                true,
+                              );
                             }}
                             onKeyDown={(event) => {
-                              if (event.key === "ArrowRight" && option.key !== "status") {
+                              if (
+                                event.key === "ArrowRight" &&
+                                option.key !== "status"
+                              ) {
                                 event.preventDefault();
                                 openFlyout(
                                   option.key,
@@ -751,7 +825,9 @@ export default function RadarPage() {
                               {option.label}
                             </span>
                             <span className="ie-radar-sort-badge">
-                              {option.key === "status" && statusSections ? String.fromCharCode(10003) : sortLabel(option.key, direction)}
+                              {option.key === "status" && statusSections
+                                ? String.fromCharCode(10003)
+                                : sortLabel(option.key, direction)}
                             </span>
                           </button>
                           {openField === option.key &&
@@ -830,8 +906,8 @@ export default function RadarPage() {
         </div>
         <p className="ie-description ie-radar-description">
           High score indicates research priority, not an investment
-          recommendation. Complete, Provisional, and Estimated Activity values are
-          not directly comparable; sorting uses canonical scores only.
+          recommendation. Complete, Provisional, and Estimated Activity values
+          are not directly comparable; sorting uses canonical scores only.
         </p>
 
         {usingResearchMocks && (
@@ -882,31 +958,52 @@ export default function RadarPage() {
                   </td>
                 </tr>
               )}
-              {tableRows.map(({ item, section }) => section ? (
-                <tr key={`section-${section}`} className="ie-radar-section-row">
-                  <th colSpan={8} scope="rowgroup" style={section === "Unavailable" ? undefined : { textAlign: "center" }}>{section}</th>
-                </tr>
-              ) : item && (
-                <tr key={`${item.ticker}-${item.public_event_day}`}>
-                  <td>
-                    <Link
-                      to={`/company/${item.ticker}`}
-                      style={{ textDecoration: "none" }}
+              {tableRows.map(({ item, section }) =>
+                section ? (
+                  <tr
+                    key={`section-${section}`}
+                    className="ie-radar-section-row"
+                  >
+                    <th
+                      colSpan={8}
+                      scope="rowgroup"
+                      style={
+                        section === "Unavailable"
+                          ? undefined
+                          : { textAlign: "center" }
+                      }
                     >
-                      <strong>{item.ticker}</strong>
-                      <br />
-                      <span className="ie-muted">{item.company_name}</span>
-                    </Link>
-                  </td>
-                  <td>
-                    <SignalAvailability evidence={item} compact />
-                  </td>
-                  <RadarComponentValues item={item} />
-                  <td className="ie-number ie-priority-column">
-                    <ResearchPriorityValue score={item.insider_edge_score} status={item.score_status} coverage={item.quantitative_coverage} />
-                  </td>
-                </tr>
-              ))}
+                      {section}
+                    </th>
+                  </tr>
+                ) : (
+                  item && (
+                    <tr key={`${item.ticker}-${item.public_event_day}`}>
+                      <td>
+                        <Link
+                          to={`/company/${item.ticker}`}
+                          style={{ textDecoration: "none" }}
+                        >
+                          <strong>{item.ticker}</strong>
+                          <br />
+                          <span className="ie-muted">{item.company_name}</span>
+                        </Link>
+                      </td>
+                      <td>
+                        <SignalAvailability evidence={item} compact />
+                      </td>
+                      <RadarComponentValues item={item} />
+                      <td className="ie-number ie-priority-column">
+                        <ResearchPriorityValue
+                          score={item.insider_edge_score}
+                          status={item.score_status}
+                          coverage={item.quantitative_coverage}
+                        />
+                      </td>
+                    </tr>
+                  )
+                ),
+              )}
             </tbody>
           </table>
         </div>
