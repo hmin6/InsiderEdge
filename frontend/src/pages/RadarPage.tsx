@@ -53,8 +53,9 @@ const MascotTooltip = ({
     }}
   >
     <div style={{ flexShrink: 0 }}>
+      {/* Fixed image path to match your actual file name! */}
       <img
-        src="/mascot.svg"
+        src="/gemini-svg.svg"
         alt="Agent Mascot"
         style={{ width: "70px", height: "70px" }}
       />
@@ -96,9 +97,10 @@ const MascotTooltip = ({
 
 const tourSteps: Step[] = [
   {
-    target: ".ie-radar-header-bar", 
+    target: ".ie-radar-header-bar",
     placement: "bottom",
-    content: "Welcome to InsiderEdge! I'm Edge, your quantitative research assistant. Let's look at the market radar.",
+    content:
+      "Welcome to InsiderEdge! This platform provides institutional-grade quantitative equity research. We detect anomalous insider trading clusters, analyze market dislocations, and use Machine Learning to predict benchmark outperformance.",
   },
   {
     target: ".ie-radar-table",

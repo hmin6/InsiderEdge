@@ -57,9 +57,8 @@ const MascotTooltip = ({
     }}
   >
     <div style={{ flexShrink: 0 }}>
-      {/* Assuming you place mascot.png in the frontend/public folder */}
       <img
-        src="/mascot.png"
+        src="/gemini-svg.svg"
         alt="Agent Mascot"
         style={{
           width: "70px",
@@ -111,9 +110,10 @@ const MascotTooltip = ({
 
 const tourSteps: Step[] = [
   {
-    target: ".ie-product-header", 
+    target: ".ie-product-header",
     placement: "bottom",
-    content: "Welcome to InsiderEdge! Let me show you how to read this institutional-grade quantitative research.",
+    content:
+      "Welcome to InsiderEdge! Let me show you how to read this institutional-grade quantitative research.",
   },
   {
     target: ".tour-score-panel",
