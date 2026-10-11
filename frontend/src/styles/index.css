@@ -110,6 +110,48 @@
   margin-top: 6px;
   border-top: 1px solid rgba(255, 255, 255, 0.15);
 }
+.ie-radar-priority-flyout { overflow: visible; }
+.ie-radar-priority-flyout::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -8px;
+  width: 12px;
+  height: 100%;
+  background: transparent;
+  pointer-events: auto;
+}
+.ie-radar-priority-directions::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -8px;
+  width: 12px;
+  height: 100%;
+  background: transparent;
+  pointer-events: auto;
+}
+.ie-radar-priority-category { position: relative; }
+.ie-radar-priority-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ie-radar-priority-selected { margin-left: auto; width: 14px; }
+.ie-radar-priority-category > button[aria-current="true"] {
+  background: rgba(59, 130, 246, 0.2);
+}
+.ie-radar-priority-directions {
+  position: absolute;
+  z-index: 100;
+  width: min(220px, calc(100vw - 24px));
+  padding: 4px;
+  border: 1px solid var(--ie-border);
+  border-radius: 8px;
+  background: var(--ie-panel);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--ie-shadow);
+}
 @media (max-width: 600px), (max-height: 500px) {
   .ie-radar-sort-menu {
     max-height: 65vh;
