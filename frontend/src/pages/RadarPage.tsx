@@ -124,36 +124,41 @@ const MascotTooltip = ({
   </div>
 );
 
-const tourSteps: Step[] = [
+const tourSteps: any[] = [
   {
     target: ".ie-radar-header-bar",
     placement: "bottom",
     content:
       "Welcome to our Hackathon Project: InsiderEdge! This platform identifies institutional-grade quantitative equity research by detecting anomalous insider trading clusters.",
+    disableBeacon: true,
   },
   {
     target: ".ie-radar-table",
     placement: "top",
     content:
       "Here is our Market Radar queue. It constantly scans recent SEC Form 4 filings and ranks them based on Mahalanobis distance, clustered buying, and XGBoost machine learning predictions.",
+    disableBeacon: true,
   },
   {
     target: ".ie-radar-sort",
     placement: "bottom",
     content:
       "You can sort the generated signals by different quantitative components. Try sorting by 'Anomaly' or 'Market Dislocation'!",
+    disableBeacon: true,
   },
   {
     target: ".ie-radar-quick-search",
     placement: "bottom",
     content:
       "If you want to evaluate a specific stock, type its ticker here. We normalize the SEC data and calculate the event study on the fly.",
+    disableBeacon: true,
   },
   {
     target: ".ie-radar-table tbody tr:first-child",
     placement: "bottom",
     content:
       "Click on any company row here to dive into the deep quantitative metrics, our ML evaluation, and the Gemini AI explanation for this exact event!",
+    disableBeacon: true,
   },
 ];
 // --- END OF TOUR GUIDE IMPLEMENTATION ---
@@ -284,8 +289,15 @@ export default function RadarPage() {
   const sortMenu = useRef<HTMLDivElement>(null);
   const resource = useResource("radar", fetchRadar);
 
+  // --- TOUR STATE ---
   const [runTour, setRunTour] = useState(false);
   const [tourKey, setTourKey] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Defeat React 18 StrictMode double-mounting
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const { loading, error, retry } = resource;
   const data = rankRadar(resource.data?.items || []);
@@ -299,13 +311,15 @@ export default function RadarPage() {
     .sort((a, b) => compareRadar(a, b, sort.field, sort.direction));
 
   useEffect(() => {
-    const hasSeenRadarTour = localStorage.getItem("ie_has_seen_radar_tour");
-    if (!hasSeenRadarTour) {
-      // Small timeout ensures the DOM is fully painted before Joyride tries to attach tooltips
-      const timer = setTimeout(() => setRunTour(true), 500);
-      return () => clearTimeout(timer);
+    if (data.length > 0) {
+      const hasSeenRadarTour = localStorage.getItem("ie_has_seen_radar_tour");
+      if (!hasSeenRadarTour) {
+        // Generous timeout ensures DOM is fully painted
+        const timer = setTimeout(() => setRunTour(true), 800);
+        return () => clearTimeout(timer);
+      }
     }
-  }, []);
+  }, [data.length]);
 
   const handleJoyrideCallback = (joyrideData: any) => {
     const { status } = joyrideData;
@@ -564,19 +578,25 @@ export default function RadarPage() {
         </button>
       }
     >
-      {/* @ts-ignore - Bypass strict joyride v3 type mismatches */}
-      <Joyride
-        {...({
-          key: tourKey,
-          steps: tourSteps,
-          run: runTour,
-          continuous: true,
-          tooltipComponent: MascotTooltip,
-          beaconComponent: () => null,
-          callback: handleJoyrideCallback,
-          styles: { overlay: { zIndex: 10000 } },
-        } as any)}
-      />
+      {isMounted && (
+        // @ts-ignore - Bypass strict joyride v3 type mismatches
+        <Joyride
+          key={tourKey}
+          {...({
+            steps: tourSteps,
+            run: runTour,
+            continuous: true,
+            disableBeacon: true, 
+            showSkipButton: true,
+            tooltipComponent: MascotTooltip,
+            callback: handleJoyrideCallback,
+            disableScrollParentFix: true,
+            styles: {
+              options: { zIndex: 10000, primaryColor: "var(--ie-primary)" },
+            },
+          } as any)}
+        />
+      )}
 
       <PageContainer className="ie-reveal">
         <p className="ie-eyebrow">Research Queue</p>

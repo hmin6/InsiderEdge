@@ -128,59 +128,65 @@ const MascotTooltip = ({
   </div>
 );
 
-const tourSteps: Step[] = [
+const tourSteps: any[] = [
   {
     target: ".ie-product-header",
     placement: "bottom",
     content:
       "Welcome to the Company Research Profile! Let me show you how to read this institutional-grade quantitative research.",
+    disableBeacon: true,
   },
   {
     target: ".tour-score-panel",
     placement: "bottom",
     content:
       "This is the overall InsiderEdge Score. It ranks the research priority of this event from 0-100 based on a blend of the components below.",
+    disableBeacon: true,
   },
   {
     target: ".tour-activity-panel",
     placement: "right",
     content:
       "Anomaly & Activity measures how unusual this insider buying is. We look at Mahalanobis distances and 30-day clustering to detect true conviction.",
+    disableBeacon: true,
   },
   {
     target: ".tour-dislocation-panel",
     placement: "right",
     content:
       "Market Dislocation evaluates if the stock is being bought into severe weakness or sector-wide drops, signaling a value setup.",
+    disableBeacon: true,
   },
   {
     target: ".tour-prediction-panel",
     placement: "left",
     content:
       "Our Machine Learning engine (XGBoost or Logistic Regression) predicts the exact probability that this stock will beat the benchmark over the next 30 days.",
+    disableBeacon: true,
   },
   {
     target: ".tour-event-study-panel",
     placement: "left",
     content:
       "The Event Study compares this exact setup against historical comparables, proving the edge using p-values, bootstrap intervals, and Mean CAR30.",
+    disableBeacon: true,
   },
   {
     target: ".tour-ai-panel",
     placement: "top",
     content:
       "Finally, our AI Research Assistant uses Gemini and Snowflake Cortex to contextualize the filings, and ElevenLabs to generate an audio analyst brief!",
+    disableBeacon: true,
   },
 ];
-// --- END OF TOUR GUIDE IMPLEMENTATION ---
 
+// --- END OF TOUR GUIDE IMPLEMENTATION ---
 export default function CompanyPage() {
   const { ticker = "" } = useParams();
   return (
     <CompanyResearch key={ticker.toUpperCase()} ticker={ticker.toUpperCase()} />
   );
 }
-
 function CompanyResearch({ ticker }: { ticker: string }) {
   const company = useResource(
     ticker,
@@ -215,17 +221,24 @@ function CompanyResearch({ ticker }: { ticker: string }) {
     ),
   );
 
+  // --- TOUR STATE ---
   const [runTour, setRunTour] = useState(false);
   const [tourKey, setTourKey] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Automatically start the tour the first time the page loads if data is successful
   useEffect(() => {
-    const hasSeenTour = localStorage.getItem("ie_has_seen_tour");
-    if (!hasSeenTour) {
-      const timer = setTimeout(() => setRunTour(true), 500);
-      return () => clearTimeout(timer);
-    }
+    setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (company.data) {
+      const hasSeenTour = localStorage.getItem("ie_has_seen_tour");
+      if (!hasSeenTour) {
+        const timer = setTimeout(() => setRunTour(true), 800);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [company.data]);
 
   const handleJoyrideCallback = (data: any) => {
     const { status } = data;
@@ -250,19 +263,25 @@ function CompanyResearch({ ticker }: { ticker: string }) {
 
   return (
     <AppShell navigation={[]}>
-      {/* @ts-ignore - Bypass strict joyride v3 type mismatches */}
-      <Joyride
-        {...({
-          key: tourKey,
-          steps: tourSteps,
-          run: runTour,
-          continuous: true,
-          tooltipComponent: MascotTooltip,
-          beaconComponent: () => null,
-          callback: handleJoyrideCallback,
-          styles: { overlay: { zIndex: 10000 } }
-        } as any)}
-      />
+      {isMounted && (
+        // @ts-ignore - Bypass strict joyride v3 type mismatches
+        <Joyride
+          key={tourKey}
+          {...({
+            steps: tourSteps,
+            run: runTour,
+            continuous: true,
+            disableBeacon: true, 
+            showSkipButton: true,
+            tooltipComponent: MascotTooltip,
+            callback: handleJoyrideCallback,
+            disableScrollParentFix: true,
+            styles: {
+              options: { zIndex: 10000, primaryColor: "var(--ie-primary)" },
+            },
+          } as any)}
+        />
+      )}
 
       <PageContainer className="ie-reveal">
         <ProductHeader
