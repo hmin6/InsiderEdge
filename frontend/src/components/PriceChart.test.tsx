@@ -11,9 +11,10 @@ const prices: PricePoint[] = [{ date: '2026-10-01', analysis_price: 100,
 test('chart legend describes analysis prices and qualifying filing dates, not research events', () => {
   const html = renderToStaticMarkup(<PriceChart prices={prices} transactions={[]} />);
   assert.match(html, /aria-label="Price chart legend"/);
-  for (const label of ['Adjustment-aware price', 'Qualifying purchase filing', 'Active price point']) {
+  for (const label of ['Qualifying purchase filing', 'Active price point']) {
     assert.ok(html.includes(label));
   }
+  assert.doesNotMatch(html, /Adjustment-aware price/);
   assert.doesNotMatch(html, /Research event|Transaction date|Buy signal/);
   assert.match(html, /flex-wrap:wrap/);
   assert.match(html, /fill="var\(--ie-primary\)"/); // Filled blue event swatch.
