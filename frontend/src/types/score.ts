@@ -1,6 +1,7 @@
-import type { AvailabilityStatus } from './api';
+import type { AvailabilityStatus, QuantitativeCoverageData } from './api';
 /** Backend-provided values; the visualization never constructs a composite score. */
 export type ScoreEvidence = {
+  quantitative_coverage?: QuantitativeCoverageData | null;
   insider_edge_score: number | null;
   anomaly_score: number | null;
   activity_score: number | null;

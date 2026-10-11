@@ -38,6 +38,7 @@ type RadarResponse = {
 }
 
 type RadarItem = {
+  quantitative_coverage?: QuantitativeCoverage | null
   ticker: string
   company_name: string
   sector: string | null
@@ -74,6 +75,7 @@ Purpose: company metadata and latest signal summary.
 
 ```ts
 type CompanyResponse = {
+  quantitative_coverage?: QuantitativeCoverage | null
   ticker: string
   cik: string | null
   company_name: string
@@ -356,3 +358,47 @@ Exact wording may remain FastAPI-standard as long as frontend behavior is contro
 ### Provider/AI failure
 
 Return a controlled API error appropriate to the endpoint. Do not leak stack traces, secrets, or provider credentials. Gemini/ElevenLabs failures do not invalidate already-computed quantitative data.
+
+## Issue #81 additive quantitative coverage
+
+RadarItem and CompanyResponse may include nullable `quantitative_coverage`.
+Existing score/status fields and `insider_signal_summary` remain unchanged.
+The object contains `status` (`provisional`, `descriptive_only` or `unavailable`), nullable
+`purchase_count`, `purchase_value`, `information_date`, nullable `partial_index`,
+`coverage_weight`, `available_components`, `missing_components`,
+`calculation_method` (`observed_weight_renormalization`), `reasons`, and
+`provenance_limitations`. Complete Signals return null coverage.
+
+Under the explicitly authorized incomplete-provenance standard, valid event-bound
+Signal components may produce `partial_index`; weights and thresholds follow
+MODEL_SPEC.md. Return available/missing components and original coverage weight.
+Reject contradictory values/missingness, mismatched retained bindings and known
+future-dated evidence. Missing chronology remains an explicit limitation, not proof.
+No index is ranked or substituted for IES. `imputed_components` is empty and
+`imputation_method` null: no defensible neutral imputation is implemented. Descriptive purchase metrics require
+issue5-v1 event lineage, matching qualifying non-amendment source transactions,
+matching accessions/counts/event identity, and filing dates no later than the
+information boundary. Value requires a complete, nonnegative sum matching the
+stored aggregate. Missing value does not invalidate a verified transaction count.
+Buyer and price metrics remain unavailable without retained mapping/snapshot evidence.
+These checks establish consistency of persisted source data, not authenticated
+historical snapshots. Radar omits its unused Signal Summary column only; the API
+field and company-detail explanation remain intact.
+
+```ts
+type QuantitativeCoverage = {
+  status: "provisional" | "descriptive_only" | "unavailable"
+  purchase_count: number | null
+  purchase_value: number | null
+  information_date: string
+  partial_index: number | null
+  imputed_components: string[]
+  imputation_method: string | null
+  coverage_weight: number
+  available_components: string[]
+  missing_components: string[]
+  calculation_method: "observed_weight_renormalization"
+  reasons: string[]
+  provenance_limitations: string[]
+}
+```

@@ -1,3 +1,4 @@
+import { QuantitativeCoverage } from "../components/QuantitativeCoverage";
 import { AIResearchAssistant } from "../components/AIResearchAssistant";
 import { useCallback, useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
@@ -327,10 +328,9 @@ function CompanyResearch({ ticker }: { ticker: string }) {
                 {data.latest_signal ? (
                   <InsiderEdgeScore evidence={data.latest_signal} />
                 ) : (
-                  <Panel title="InsiderEdge Score">
-                    <StateMessage title="No recent events">
-                      No score has been invented.
-                    </StateMessage>
+                  <Panel title={data.quantitative_coverage?.status === 'descriptive_only' ? 'Available quantitative data' : 'InsiderEdge Score'}>
+                    {data.quantitative_coverage ? <QuantitativeCoverage data={data.quantitative_coverage} /> :
+                      <StateMessage title="No recent events">No score has been invented.</StateMessage>}
                   </Panel>
                 )}
               </PanelBoundary>

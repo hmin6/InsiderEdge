@@ -1,3 +1,4 @@
+import { QuantitativeCoverage } from "./QuantitativeCoverage";
 import { SignalAvailability } from "./SignalAvailability";
 import type { ScoreEvidence } from "../types/score";
 import { useScoreReveal } from "../hooks/useScoreReveal";
@@ -128,6 +129,7 @@ export function InsiderEdgeScore({ evidence }: { evidence: ScoreEvidence }) {
           ))}
         </dl>
       </div>
+      {(score === null || evidence.quantitative_coverage?.status === 'provisional') && <QuantitativeCoverage data={evidence.quantitative_coverage} />}
       <div className="ie-score-note">
         <SignalAvailability evidence={evidence} showBadge={false} />
         {!evidence.availability_status &&

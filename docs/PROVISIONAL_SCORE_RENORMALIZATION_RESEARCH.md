@@ -244,3 +244,15 @@ and Markdown/new-file whitespace checks are run as the accompanying review check
 results are reported with the task handoff. Original unrelated files remain in
 the original checkout. No external research-service/DB requests or scoring jobs
 were executed; tests use synthetic fixtures.
+
+## Superseding limited Issue #81 product authorization
+
+The prior API/UI no-go has an explicit product exception: a separate Provisional
+Index in the standard dashboard under MODEL_SPEC.md's Issue #81 rules. Existing
+Signal-bound values with incomplete historical provenance are accepted only for
+this unvalidated display; known contradictions, invalid values and future evidence
+remain disqualifying. It is not canonical IES or a calibrated prediction and must
+not enter canonical rankings. Source-consistent descriptive metrics remain separate.
+No imputation is implemented because no defensible neutral reference is established.
+Other unvalidated scoring, fabricated source data and historical backfills remain
+prohibited. This authorization does not change the historical research findings.

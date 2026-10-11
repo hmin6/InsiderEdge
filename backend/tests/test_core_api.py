@@ -399,3 +399,63 @@ def test_missing_signal_never_infers_exclusion_from_date_or_unverified_metadata(
     company = client.get('/api/companies/AAPL').json()
     assert company['latest_public_event_day'] == day.isoformat()
     assert company['latest_signal'] is None
+
+
+@pytest.mark.parametrize('with_lineage', [True, False])
+def test_quantitative_coverage_http_preserves_missing_signal_and_sources(setup, with_lineage):
+    client, engine, _ = setup
+    seed(engine)
+    metadata = {'builder_version': 'issue5-v1', 'source_transaction_ids': ['synthetic-one'],
+                'source_accessions': ['0000000001-26-000001']} if with_lineage else None
+    with Session(engine) as session, session.begin():
+        session.add(research(feature_metadata=metadata))
+        session.add(transaction())
+    radar = client.get('/api/radar').json()['items'][0]
+    company = client.get('/api/companies/AAPL').json()
+    assert radar['availability_status'] == 'not_scored'
+    assert radar['insider_edge_score'] is None
+    assert company['latest_signal'] is None
+    coverage = radar['quantitative_coverage']
+    assert company['quantitative_coverage'] == coverage
+    assert coverage['partial_index'] is None
+    assert coverage['status'] == ('descriptive_only' if with_lineage else 'unavailable')
+    assert coverage['purchase_count'] == (1 if with_lineage else None)
+    assert coverage['purchase_value'] == (12.5 if with_lineage else None)
+    with Session(engine) as session:
+        assert session.scalar(select(func.count()).select_from(Signal)) == 0
+
+
+@pytest.mark.parametrize('bad_field,bad_value', [('document_type', '4/A'), ('source_table', 'DERIV_TRANS')])
+def test_coverage_http_rejects_contradictory_qualification(setup, bad_field, bad_value):
+    client, engine, _ = setup
+    seed(engine)
+    with Session(engine) as session, session.begin():
+        session.add(research(feature_metadata={'builder_version': 'issue5-v1',
+            'source_transaction_ids': ['synthetic-one'], 'source_accessions': ['0000000001-26-000001']}))
+        session.add(transaction(**{bad_field: bad_value}))
+    result = client.get('/api/radar').json()['items'][0]['quantitative_coverage']
+    assert result['purchase_count'] is None and result['purchase_value'] is None
+    assert result['status'] == 'unavailable'
+
+
+def test_provisional_http_separate_from_canonical_score_and_no_write(setup):
+    client, engine, _ = setup
+    seed(engine)
+    with Session(engine) as session, session.begin():
+        row = research()
+        session.add(row)
+        session.flush()
+        session.add(Signal(signal_id='partial-inputs', research_event_id=row.research_event_id,
+            ticker=row.ticker, public_event_day=row.public_event_day,
+            anomaly_score=0, model_probability=Decimal('.5'), dislocation_score=100,
+            score_status='insufficient_data', unavailable_components=['C', 'S']))
+    radar = client.get('/api/radar').json()['items'][0]
+    assert radar['insider_edge_score'] is None and radar['score_status'] == 'insufficient_data'
+    assert radar['quantitative_coverage']['partial_index'] == pytest.approx(30 / .7)
+    assert radar['quantitative_coverage']['status'] == 'provisional'
+    company = client.get('/api/companies/AAPL').json()
+    assert company['latest_signal']['quantitative_coverage'] == radar['quantitative_coverage']
+    with Session(engine) as session:
+        row = session.scalar(select(Signal))
+        assert row.insider_edge_score is None and row.score_status == 'insufficient_data'
+        assert session.scalar(select(func.count()).select_from(Signal)) == 1

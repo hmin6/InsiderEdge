@@ -24,12 +24,12 @@ def latest_events(tickers):
             .where(ranked.c.position == 1))
 
 
-def radar_item(event, signal, company, frozen):
+def radar_item(event, signal, company, frozen, coverage=None):
     # No stored textual summary exists; NULL is the honest contract value.
     return RadarItem(
         ticker=frozen.ticker, company_name=company.company_name if company else frozen.company_name,
         sector=company.sector if company else frozen.sector, public_event_day=event.public_event_day,
-        insider_signal_summary=None,
+        insider_signal_summary=None, quantitative_coverage=coverage,
         insider_edge_score=signal.insider_edge_score if signal else None,
         anomaly_score=signal.anomaly_score if signal else None,
         activity_score=signal.activity_score if signal else None,
@@ -44,7 +44,9 @@ def radar_item(event, signal, company, frozen):
 
 def radar(session, universe):
     rows = session.execute(latest_events([company.ticker for company in universe.companies])).all()
-    items = [radar_item(event, signal, company, universe.ticker_to_company(event.ticker))
+    from app.services.quantitative_coverage import quantitative_coverage
+    items = [radar_item(event, signal, company, universe.ticker_to_company(event.ticker),
+                        quantitative_coverage(session, event, signal))
              for event, signal, company in rows]
     items.sort(key=lambda item: (item.insider_edge_score is None,
                                  -(item.insider_edge_score if item.insider_edge_score is not None else 0),
@@ -56,12 +58,15 @@ def company(session, frozen):
     stored = session.get(Company, frozen.ticker)
     latest = session.execute(latest_events([frozen.ticker])).first()
     event, signal, metadata = latest if latest else (None, None, None)
+    from app.services.quantitative_coverage import quantitative_coverage
+    coverage = quantitative_coverage(session, event, signal) if event else None
     return CompanyResponse(
+        quantitative_coverage=coverage,
         ticker=frozen.ticker, cik=stored.cik if stored else frozen.cik,
         company_name=stored.company_name if stored else frozen.company_name,
         sector=stored.sector if stored else frozen.sector, industry=stored.industry if stored else None,
         latest_public_event_day=event.public_event_day if event else None,
-        latest_signal=radar_item(event, signal, metadata, frozen) if signal else None,
+        latest_signal=radar_item(event, signal, metadata, frozen, coverage) if signal else None,
     )
 
 

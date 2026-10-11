@@ -12,7 +12,24 @@ class ResponseModel(BaseModel):
     model_config = ConfigDict(from_attributes=True, allow_inf_nan=False)
 
 
+class QuantitativeCoverage(ResponseModel):
+    status: Literal['provisional', 'descriptive_only', 'unavailable']
+    purchase_count: int | None
+    purchase_value: Annotated[float, Field(ge=0)] | None
+    information_date: date
+    partial_index: Score | None = None
+    imputed_components: list[str] = Field(default_factory=list)
+    imputation_method: str | None = None
+    coverage_weight: Probability = 0
+    available_components: list[str]
+    missing_components: list[str]
+    calculation_method: Literal['observed_weight_renormalization']
+    reasons: list[str]
+    provenance_limitations: list[str]
+
+
 class RadarItem(ResponseModel):
+    quantitative_coverage: QuantitativeCoverage | None = None
     ticker: str
     company_name: str
     sector: str | None
@@ -35,6 +52,7 @@ class RadarResponse(ResponseModel):
 
 
 class CompanyResponse(ResponseModel):
+    quantitative_coverage: QuantitativeCoverage | None = None
     ticker: str
     cik: str | None
     company_name: str
