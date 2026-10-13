@@ -21,6 +21,7 @@ Before modifying code, read these files in this order:
 9. the assigned GitHub issue
 10. the exact issue-specific implementation prompt from the master plan
 
+
 `docs/API_CONTRACT.md`, `docs/DATA_SCHEMA.md`, and `docs/MODEL_SPEC.md` are hard implementation contracts. If documentation conflicts with code or an issue prompt, stop and report the conflict rather than silently choosing a new design.
 
 ## Git / GitHub workflow
